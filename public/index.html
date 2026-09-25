@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GAfix AI Summary — POC v4</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0e13;--surface:#13171e;--raised:#1a1f28;--border:#262d3a;--text:#dfe3ea;--muted:#7a8494;--accent:#5b8def;--accent-dim:rgba(91,141,239,.1);--green:#3dd68c;--green-dim:rgba(61,214,140,.08);--amber:#f0b429;--amber-dim:rgba(240,180,41,.07);--red:#ef6461;--red-dim:rgba(239,100,97,.06);--purple:#a78bfa;--purple-dim:rgba(167,139,250,.08);--radius:10px;--font:'DM Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#f4f5f7;--surface:#fff;--raised:#f0f1f4;--border:#dce0e8;--text:#1c2028;--muted:#6b7280;--accent:#3b6fd4;--accent-dim:rgba(59,111,212,.07);--green:#16a360;--green-dim:rgba(22,163,96,.06);--amber:#b8860b;--amber-dim:rgba(184,134,11,.06);--red:#dc2626;--red-dim:rgba(220,38,38,.05);--purple:#7c3aed;--purple-dim:rgba(124,58,237,.06)}}
+:root[data-theme="dark"]{--bg:#0b0e13;--surface:#13171e;--raised:#1a1f28;--border:#262d3a;--text:#dfe3ea;--muted:#7a8494}
+*{box-sizing:border-box;margin:0}html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100%}
+.shell{max-width:860px;margin:0 auto;padding:24px 20px 60px}
+.hdr{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.hdr-icon{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff}
+.hdr h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.hdr .tag{font-size:10px;font-weight:600;letter-spacing:.4px;background:var(--accent-dim);color:var(--accent);padding:2px 8px;border-radius:12px;margin-left:auto}
+.url-row{margin-bottom:14px}
+.url-row label{display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--muted)}
+.url-row input{width:100%;font-family:var(--font);font-size:13px;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;outline:none}
+.url-row input:focus{border-color:var(--accent)}
+.url-row input::placeholder{color:var(--muted)}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+@media(max-width:640px){.upload-grid{grid-template-columns:1fr}}
+.upload-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.uc-label{font-size:11px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.uc-dot{width:6px;height:6px;border-radius:50%}
+.uc-dot.ga{background:var(--accent)}.uc-dot.gtm{background:var(--purple)}.uc-dot.comp{background:var(--green)}
+.uc-badge{font-size:9px;padding:1px 5px;border-radius:8px;margin-left:auto;font-weight:600}
+.uc-badge.required{background:var(--red-dim);color:var(--red)}.uc-badge.optional{background:var(--accent-dim);color:var(--muted)}
+.drop-zone{border:2px dashed var(--border);border-radius:7px;padding:14px 8px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;position:relative;min-height:52px;display:flex;align-items:center;justify-content:center}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:var(--accent-dim)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.dz-text{font-size:11px;color:var(--muted);pointer-events:none}.dz-text strong{color:var(--accent)}
+.drop-zone.loaded{border-style:solid;border-color:var(--green)}.drop-zone.loaded .dz-text{color:var(--green);font-size:10px}
+.uc-meta{font-size:10px;color:var(--muted);margin-top:4px}.uc-meta span{font-family:var(--mono);color:var(--text)}
+.gen-row{text-align:center;margin:16px 0}
+.gen-btn{font-family:var(--font);font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;border:none;padding:11px 32px;border-radius:8px;cursor:pointer;transition:opacity .15s}
+.gen-btn:hover{opacity:.92}.gen-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Output card */
+.out-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.out-tabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.out-tab{padding:9px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:5px}
+.out-tab:hover{color:var(--text)}.out-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.t-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.t-dot.pending{background:var(--muted)}.t-dot.running{background:var(--amber);animation:pulse 1s infinite}.t-dot.done{background:var(--green)}.t-dot.err{background:var(--red)}.t-dot.skip{background:var(--border)}.t-dot.waiting{background:var(--purple);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.out-pane{display:none;padding:18px}.out-pane.active{display:block}
+.placeholder{color:var(--muted);font-size:12px;text-align:center;padding:18px 8px}
+
+/* Summary block — matches GAfix report UI */
+.sum-block{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:0}
+.sum-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.sum-label .tri{font-size:13px}
+.sum-headline{font-size:15px;font-weight:700;line-height:1.45;margin-bottom:6px;letter-spacing:-.15px}
+.sum-sub{font-size:12px;color:var(--muted);margin-bottom:10px}
+.sum-subhead{font-size:12px;font-weight:600;color:var(--accent);margin:10px 0 4px;letter-spacing:-.1px}
+.sum-text{font-size:13px;line-height:1.65;margin-bottom:8px}
+.sum-text:last-child{margin-bottom:0}
+.sum-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.sc{font-size:10px;font-weight:600;padding:4px 10px;border-radius:14px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,100,97,.18);cursor:pointer;transition:opacity .15s}
+.sc:hover{opacity:.8}
+.sc-amber{background:var(--amber-dim);color:var(--amber);border-color:rgba(240,180,41,.2)}
+
+/* Action required tab */
+.action-item{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.action-item:last-child{margin-bottom:0}
+.action-num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center;flex-shrink:0;margin-top:2px}
+.action-body{flex:1;min-width:0}
+.action-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.action-desc{font-size:12px;color:var(--muted);line-height:1.55}
+.action-source{font-size:10px;font-weight:600;margin-top:4px;padding:2px 7px;border-radius:8px;display:inline-block}
+.action-source.ga{background:var(--accent-dim);color:var(--accent)}
+.action-source.gtm{background:var(--purple-dim);color:var(--purple)}
+.action-source.comp{background:var(--green-dim);color:var(--green)}
+
+/* Stats */
+.s-meta{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;font-size:10px;color:var(--muted)}
+.s-meta span{font-family:var(--mono);color:var(--text);font-weight:500}
+.total-bar{margin-top:14px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:none;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--muted)}
+.total-bar.show{display:flex}.total-bar .tb-item span{font-family:var(--mono);font-weight:500;color:var(--text)}
+.err-box{background:var(--red-dim);border:1px solid rgba(239,100,97,.25);border-radius:7px;padding:12px;color:var(--red);font-size:12px}
+.streaming::after{content:'▊';color:var(--accent);animation:blink .8s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="hdr"><div class="hdr-icon">G</div><h1>GAfix AI Summary</h1><span class="tag">POC v4</span></div>
+
+  <div class="url-row">
+    <label>Website URL</label>
+    <input type="text" id="urlInput" placeholder="https://www.example.com">
+  </div>
+
+  <div class="upload-grid">
+    <div class="upload-card">
+      <div class="uc-label"><div class="uc-dot ga"></div>GA4 Audit<span class="uc-badge required">Required</span></div>
+      <div class="drop-zone" id="dz-ga"><input type="file" accept=".json,.md,.txt,.text,.markdown" data-type="ga"><div class="dz-text">Drop <strong>JSON / MD / TXT</strong></div></div>
+      <div class="uc-meta" id="meta-ga"></div>
+    </div>
+    <div class="upload-card">
+      <div class="uc-label"><div class="uc-dot gtm"></div>GTM Audit<span class="uc-badge optional">Optional</span></div>
+      <div class="drop-zone" id="dz-gtm"><input type="file" accept=".json,.md,.txt,.text,.markdown" data-type="gtm"><div class="dz-text">Drop <strong>JSON / MD / TXT</strong></div></div>
+      <div class="uc-meta" id="meta-gtm"></div>
+    </div>
+    <div class="upload-card">
+      <div class="uc-label"><div class="uc-dot comp"></div>Compliance<span class="uc-badge optional">Optional</span></div>
+      <div class="drop-zone" id="dz-comp"><input type="file" accept=".json,.md,.txt,.text,.markdown" data-type="comp"><div class="dz-text">Drop <strong>JSON / MD / TXT</strong></div></div>
+      <div class="uc-meta" id="meta-comp"></div>
+    </div>
+  </div>
+
+  <div class="gen-row"><button class="gen-btn" id="genBtn" disabled>Upload GA4 JSON to start</button></div>
+
+  <div class="out-card" id="outCard">
+    <div class="out-tabs" id="outTabs">
+      <div class="out-tab" data-pane="actions"><div class="t-dot skip"></div>Action Required</div>
+      <div class="out-tab active" data-pane="ga"><div class="t-dot pending"></div>GA4</div>
+      <div class="out-tab" data-pane="gtm"><div class="t-dot skip"></div>GTM</div>
+      <div class="out-tab" data-pane="comp"><div class="t-dot skip"></div>Compliance</div>
+    </div>
+    <div class="out-pane" id="pane-actions"><div class="placeholder">Top 5 fixes across all audits — generated after summaries complete.</div></div>
+    <div class="out-pane active" id="pane-ga"><div class="placeholder">Upload GA4 audit data and generate.</div></div>
+    <div class="out-pane" id="pane-gtm"><div class="placeholder">Upload GTM audit data (optional).</div></div>
+    <div class="out-pane" id="pane-comp"><div class="placeholder">Upload Compliance audit data (optional).</div></div>
+  </div>
+
+  <div class="total-bar" id="totalBar">
+    <div class="tb-item">Total tokens: <span id="tbTok">—</span></div>
+    <div class="tb-item">Cost: <span id="tbCost">—</span></div>
+    <div class="tb-item">With caching: <span id="tbCache">—</span></div>
+  </div>
+</div>
+
+<script>
+const PROXY_ENDPOINT = "/api/summarize";
+const state = { ga:{raw:null,optimized:null}, gtm:{raw:null,optimized:null}, comp:{raw:null,optimized:null}, results:{ga:null,gtm:null,comp:null,actions:null} };
+
+// Tabs
+document.getElementById('outTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.out-tab'); if (!tab) return;
+  document.querySelectorAll('.out-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.out-pane').forEach(p=>p.classList.remove('active'));
+  tab.classList.add('active');
+  document.getElementById('pane-'+tab.dataset.pane).classList.add('active');
+});
+
+// File handling
+document.querySelectorAll('.drop-zone').forEach(dz => {
+  const input=dz.querySelector('input'), type=input.dataset.type;
+  dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
+  dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files.length)loadFile(type,e.dataTransfer.files[0])});
+  input.addEventListener('change',e=>{if(e.target.files.length)loadFile(type,e.target.files[0])});
+});
+
+function getFileFormat(fn){const e=fn.split('.').pop().toLowerCase();return e==='json'?'json':(e==='md'||e==='markdown')?'md':'text'}
+
+function loadFile(type,file){
+  const dz=document.getElementById('dz-'+type), meta=document.getElementById('meta-'+type), fmt=getFileFormat(file.name);
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const raw=e.target.result, rawSize=(file.size/1024).toFixed(0);
+    try{
+      if(fmt==='json'){
+        const parsed=JSON.parse(raw);
+        let opt; if(type==='ga')opt=optimizeGA(parsed);else if(type==='gtm')opt=optimizeGTM(parsed);else opt=optimizeComp(parsed);
+        const optSize=(JSON.stringify(opt).length/1024).toFixed(1);
+        state[type]={raw:parsed,optimized:opt,format:'json'};
+        dz.classList.add('loaded');dz.querySelector('.dz-text').innerHTML='✓ '+esc(file.name);
+        meta.innerHTML=rawSize+' KB → <span>'+optSize+' KB</span>';
+        if(type==='ga'){const u=parsed.account_summary?.streams?.[0]?.url;if(u&&!document.getElementById('urlInput').value)document.getElementById('urlInput').value=u;}
+      }else{
+        const trimmed=raw.length>80000?raw.slice(0,80000)+'\n[...truncated]':raw;
+        state[type]={raw:trimmed,optimized:trimmed,format:fmt};
+        dz.classList.add('loaded');dz.querySelector('.dz-text').innerHTML='✓ '+esc(file.name)+' ('+fmt.toUpperCase()+')';
+        meta.innerHTML=rawSize+' KB';
+        if(type==='ga'&&!document.getElementById('urlInput').value){const m=raw.match(/https?:\/\/[^\s"',)]+/);if(m)document.getElementById('urlInput').value=m[0]}
+      }
+      setTabDot(type,'pending');if(type!=='ga')setTabDot('actions','skip');
+      if(state.ga.optimized){document.getElementById('genBtn').disabled=false;document.getElementById('genBtn').textContent='Generate AI Summaries'}
+    }catch(err){dz.querySelector('.dz-text').innerHTML='<span style="color:var(--red)">Error: '+esc(err.message.slice(0,60))+'</span>'}
+  };reader.readAsText(file);
+}
+function setTabDot(p,c){const t=document.querySelector('.out-tab[data-pane="'+p+'"]');if(t)t.querySelector('.t-dot').className='t-dot '+c}
+
+// Optimizers
+function optimizeGA(raw){
+  const p={property:{name:raw.account_summary?.property_name||'',account:raw.account_summary?.account_name||raw.account_summary?.name||'',url:raw.account_summary?.streams?.[0]?.url||'',currency:raw.audit_report?.property_overview?.currency||'',attribution:raw.audit_report?.property_overview?.attribution_model||'',period:raw.account_summary?.time_period||''},scores:{overall:raw.audit_report?.score_summary?.[0]?.value||'0',status:raw.audit_report?.status||'Unknown',passed:raw.audit_report?.score_summary?.[1]?.value||'0',recoverable_pts:raw.audit_report?.recoverable_pts||0},ads_detected:false,integrations:[],categories:[],checkpoints:{}};
+  (raw.checkpoints?.integrations?.insights||[]).forEach(i=>{p.integrations.push({name:i.name,linked:!!i.is_linked});if(i.name==='Google Ads'&&i.is_linked)p.ads_detected=true});
+  (raw.checkpoint_summary||[]).forEach(cat=>{const c={name:cat.name,checkpoints:[]};(cat.sub_category||[]).forEach(sc=>{c.checkpoints.push({name:sc.name,score:sc.health_score,status:sc.health_status})});p.categories.push(c)});
+  for(const[k,cp]of Object.entries(raw.checkpoints||{})){if(k==='compliance')continue;const e={score:cp.health_score,status:cp.health_status,assessment:(cp.assessment||[]).filter(a=>a.details).map(a=>a.details).slice(0,3)};const ins=cp.insights||[];if(ins.length)e.insights=ins.slice(0,2).map(i=>{const c={};for(const[ik,iv]of Object.entries(i)){if(!['screenshot','icon_url','graph1','graph2','best_practices','cookies'].includes(ik))c[ik]=iv}return c});p.checkpoints[k]=e}
+  if(raw.audit_report?.trend_alert)p.trend={count:raw.audit_report.trend_alert.count,message:raw.audit_report.trend_alert.message};
+  return p;
+}
+function optimizeGTM(raw){
+  const p={checkpoints:{},categories:[],scores:{}};
+  if(raw.audit_report)p.scores={overall:raw.audit_report?.score_summary?.[0]?.value||'0',status:raw.audit_report?.status||'Unknown'};
+  if(raw.checkpoint_summary)raw.checkpoint_summary.forEach(cat=>{const c={name:cat.name,checkpoints:[]};(cat.sub_category||[]).forEach(sc=>{c.checkpoints.push({name:sc.name,score:sc.health_score,status:sc.health_status})});p.categories.push(c)});
+  for(const[k,cp]of Object.entries(raw.checkpoints||{}))p.checkpoints[k]={score:cp.health_score,status:cp.health_status,assessment:(cp.assessment||[]).filter(a=>a.details).map(a=>a.details).slice(0,3),insights:(cp.insights||[]).slice(0,2).map(i=>{const c={};for(const[ik,iv]of Object.entries(i)){if(!['screenshot','icon_url','graph1','graph2'].includes(ik))c[ik]=iv}return c})};
+  return p;
+}
+function optimizeComp(raw){
+  const p={domains:[],trackers_outside_gtm:[]};const comp=raw.checkpoints?.compliance||raw;const g1=comp.graph?.graph1?.graph1||comp.graph?.graph1||{};
+  const addD=g=>{if(!g.region_name&&!g.region)return;p.domains.push({domain:g.default_uri||g.domain||'',region:g.region_name||g.region||'',consent_model:g.consent_model_label||g.consent_model||'',privacy_law:g.privacy_law||'',banner_platform:g.banner?.platform||'',banner_detected:g.banner?.present,overall_status:g.overall_status||'',configured:(g.configured||[]).map(c=>c.name||c.details||''),violations:(g.missing||[]).map(m=>m.name||m.details||''),cookies_summary:(g.events||[]).map(e=>({category:e.category,total:e.total_cookies,status:e.status}))})};
+  if(Array.isArray(g1))g1.forEach(addD);else addD(g1);
+  p.trackers_outside_gtm=(comp.data?.missing||[]).map(m=>m.details||m.name||'');return p;
+}
+
+// System prompts — compact output, subheadings, plain language
+const PROMPT_GA=`You write the TOP ISSUES summary block for a GA4 audit report on GAfix.ai.
+
+RULES:
+- Infer business type from key events, URL, integrations (purchase=ecom, generate_lead=lead-gen, sign_up=SaaS)
+- If ads_detected=true, frame around ad spend. If false, frame around decisions/reporting.
+- Write in PLAIN ENGLISH for a business owner. No analytics jargon.
+- Be SHORT. This is a summary card, not an essay.
+
+Return ONLY this JSON:
+{
+  "headline": "1-2 sentences max. What's broken and what it's costing them. Business-specific.",
+  "subtext": "N of your X tracking areas need attention. Fixing these 3 first closes most of the gap",
+  "sections": [
+    {"subhead": "What's not working", "text": "2-3 sentences about the biggest problems with real numbers."},
+    {"subhead": "What's working well", "text": "1 sentence about what's clean."},
+    {"subhead": "Fix these first", "text": "1-2 sentences naming top 3 checkpoints in priority order."}
+  ],
+  "chips": ["top 3 failing checkpoint names"],
+  "actions": [
+    {"checkpoint": "name", "why": "1 sentence plain-language reason this matters", "source": "ga"},
+    {"checkpoint": "name", "why": "reason", "source": "ga"},
+    {"checkpoint": "name", "why": "reason", "source": "ga"}
+  ],
+  "business_type": "ecommerce|lead-gen|saas|content|other"
+}`;
+
+const PROMPT_GTM=`You write the TOP ISSUES summary block for a GTM audit report on GAfix.ai.
+Infer context from the data. Write PLAIN ENGLISH. Be SHORT.
+
+GTM priority: Container Hygiene > Events & Parameters > Attribution > Tag Firing > E-commerce.
+When 2+ checkpoints fail in one category, name top 2 + "and N other issues" + consequence.
+
+Return ONLY this JSON:
+{
+  "headline": "1-2 sentences. What's wrong with the container and what it's causing.",
+  "subtext": "N of your 5 tracking areas need attention. Fixing these 3 first closes most of the gap",
+  "sections": [
+    {"subhead": "What's not working", "text": "2-3 sentences about biggest problems."},
+    {"subhead": "What's clean", "text": "1 sentence."},
+    {"subhead": "Fix these first", "text": "Top 3 checkpoints."}
+  ],
+  "chips": ["top 3 failing checkpoints"],
+  "actions": [
+    {"checkpoint": "name", "why": "reason", "source": "gtm"},
+    {"checkpoint": "name", "why": "reason", "source": "gtm"}
+  ]
+}`;
+
+const PROMPT_COMP=`You write the TOP ISSUES summary block for a Compliance (consent & tracker) audit on GAfix.ai.
+Write PLAIN ENGLISH. Be SHORT. Frame as business/legal risk.
+
+Return ONLY this JSON:
+{
+  "headline": "1-2 sentences. Consent state and biggest risk.",
+  "subtext": "short count of domains checked + issues found",
+  "sections": [
+    {"subhead": "Consent status", "text": "1-2 sentences per domain. Banner present? Rejection respected?"},
+    {"subhead": "Tracker health", "text": "1 sentence. Scripts outside GTM?"},
+    {"subhead": "Fix these first", "text": "Top actions."}
+  ],
+  "chips": ["problem areas"],
+  "actions": [
+    {"checkpoint": "name", "why": "reason", "source": "comp"}
+  ]
+}`;
+
+// Generate
+document.getElementById('genBtn').addEventListener('click', generateAll);
+
+async function generateAll(){
+  const btn=document.getElementById('genBtn');btn.disabled=true;btn.textContent='Generating…';
+  const url=document.getElementById('urlInput').value.trim();
+  const jobs=[];
+  if(state.ga.optimized)jobs.push({type:'ga',payload:state.ga.optimized,prompt:PROMPT_GA});
+  if(state.gtm.optimized)jobs.push({type:'gtm',payload:state.gtm.optimized,prompt:PROMPT_GTM});
+  if(state.comp.optimized)jobs.push({type:'comp',payload:state.comp.optimized,prompt:PROMPT_COMP});
+
+  setTabDot('actions','waiting');
+  const promises=jobs.map(j=>runOne(j.type,j.payload,j.prompt,url));
+  await Promise.allSettled(promises);
+
+  // Build Action Required tab from all results
+  buildActionsTab();
+  showTotals();
+  btn.disabled=false;btn.textContent='Regenerate All';
+  switchTab('actions');
+}
+
+async function runOne(type,payload,systemPrompt,url){
+  const pane=document.getElementById('pane-'+type);
+  setTabDot(type,'running');
+  pane.innerHTML='<div class="placeholder streaming">Analyzing…</div>';
+
+  const isRaw=typeof payload==='string';
+  const siteUrl=url||(isRaw?'':(payload.property?.url||''));
+  const dataBlock=isRaw?payload:JSON.stringify(payload);
+  const userMsg='Generate the summary.\n\nWebsite: '+(siteUrl||'not provided')+'\n\nAudit data:\n'+dataBlock;
+  const t0=performance.now();
+
+  try{
+    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:800,system:systemPrompt,messages:[{role:"user",content:userMsg}]})});
+    const data=await resp.json();const elapsed=((performance.now()-t0)/1000).toFixed(1);
+    if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+
+    const rawText=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const inTok=data.usage?.input_tokens||0, outTok=data.usage?.output_tokens||0;
+    const sysEst=Math.round(systemPrompt.length/4);
+    const cost=(inTok*3+outTok*15)/1e6;
+    const cachedCost=((inTok-sysEst)*3+sysEst*0.30+outTok*15)/1e6;
+
+    state.results[type]={inTok,outTok,cost,cachedCost,elapsed,parsed:null};
+
+    let result;
+    try{result=JSON.parse(rawText.replace(/```json|```/g,'').trim());state.results[type].parsed=result}
+    catch(e){pane.innerHTML='<div class="sum-block"><div class="sum-text">'+rawText.split('\n\n').map(p=>esc(p)).join('</div><div class="sum-text">')+'</div></div>';setTabDot(type,'done');return}
+
+    renderSummary(pane,result,{inTok,outTok,cost,cachedCost,elapsed});
+    setTabDot(type,'done');
+  }catch(err){pane.innerHTML='<div class="err-box">'+esc(err.message)+'</div>';setTabDot(type,'err');state.results[type]=null}
+}
+
+function renderSummary(pane,r,stats){
+  let h='<div class="sum-block">';
+  h+='<div class="sum-label"><span class="tri">⚠</span> Top issues</div>';
+  h+='<div class="sum-headline">'+esc(r.headline||'')+'</div>';
+  h+='<div class="sum-sub">'+esc(r.subtext||'')+'</div>';
+  if(r.sections?.length){
+    r.sections.forEach(s=>{
+      h+='<div class="sum-subhead">'+esc(s.subhead||'')+'</div>';
+      h+='<div class="sum-text">'+esc(s.text||'')+'</div>';
+    });
+  }
+  if(r.chips?.length){
+    h+='<div class="sum-chips">';
+    r.chips.forEach(c=>h+='<span class="sc">'+esc(c)+' →</span>');
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='<div class="s-meta">';
+  h+='<div>In: <span>'+stats.inTok.toLocaleString()+'</span></div>';
+  h+='<div>Out: <span>'+stats.outTok.toLocaleString()+'</span></div>';
+  h+='<div>Cost: <span>$'+stats.cost.toFixed(4)+'</span></div>';
+  h+='<div>Cached: <span>$'+stats.cachedCost.toFixed(4)+'</span></div>';
+  h+='<div>Time: <span>'+stats.elapsed+'s</span></div>';
+  h+='</div>';
+  pane.innerHTML=h;
+}
+
+function buildActionsTab(){
+  const pane=document.getElementById('pane-actions');
+  const allActions=[];
+
+  ['ga','gtm','comp'].forEach(type=>{
+    const r=state.results[type]?.parsed;
+    if(r?.actions)r.actions.forEach(a=>allActions.push(a));
+  });
+
+  if(!allActions.length){
+    pane.innerHTML='<div class="placeholder">No actions generated yet.</div>';
+    setTabDot('actions','skip');return;
+  }
+
+  // Take top 5
+  const top5=allActions.slice(0,5);
+  let h='<div style="font-size:13px;font-weight:700;margin-bottom:12px;letter-spacing:-.1px">Top '+top5.length+' fixes across all audits</div>';
+  top5.forEach((a,i)=>{
+    const srcClass=a.source||'ga';
+    const srcLabel=srcClass==='ga'?'GA4':srcClass==='gtm'?'GTM':'Compliance';
+    h+='<div class="action-item">';
+    h+='<div class="action-num">'+(i+1)+'</div>';
+    h+='<div class="action-body">';
+    h+='<div class="action-title">'+esc(a.checkpoint||'')+'</div>';
+    h+='<div class="action-desc">'+esc(a.why||'')+'</div>';
+    h+='<span class="action-source '+srcClass+'">'+srcLabel+'</span>';
+    h+='</div></div>';
+  });
+
+  // Total cost summary
+  let tIn=0,tOut=0,tCost=0,tCache=0;
+  for(const r of Object.values(state.results)){if(!r)continue;tIn+=r.inTok||0;tOut+=r.outTok||0;tCost+=r.cost||0;tCache+=r.cachedCost||0}
+  h+='<div class="s-meta" style="margin-top:14px">';
+  h+='<div>Total in: <span>'+tIn.toLocaleString()+'</span></div>';
+  h+='<div>Total out: <span>'+tOut.toLocaleString()+'</span></div>';
+  h+='<div>Total cost: <span>$'+tCost.toFixed(4)+'</span></div>';
+  h+='<div>With caching: <span>$'+tCache.toFixed(4)+'</span></div>';
+  h+='</div>';
+
+  pane.innerHTML=h;
+  setTabDot('actions','done');
+}
+
+function showTotals(){
+  let tIn=0,tOut=0,tCost=0,tCache=0;
+  for(const r of Object.values(state.results)){if(!r)continue;tIn+=r.inTok||0;tOut+=r.outTok||0;tCost+=r.cost||0;tCache+=r.cachedCost||0}
+  if(!tIn)return;
+  document.getElementById('tbTok').textContent=(tIn+tOut).toLocaleString()+' ('+tIn.toLocaleString()+' in + '+tOut.toLocaleString()+' out)';
+  document.getElementById('tbCost').textContent='$'+tCost.toFixed(4);
+  document.getElementById('tbCache').textContent='$'+tCache.toFixed(4);
+  document.getElementById('totalBar').classList.add('show');
+}
+
+function switchTab(p){
+  document.querySelectorAll('.out-tab').forEach(t=>t.classList.toggle('active',t.dataset.pane===p));
+  document.querySelectorAll('.out-pane').forEach(el=>el.classList.toggle('active',el.id==='pane-'+p));
+}
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
+</script>
+</body>
+</html>
