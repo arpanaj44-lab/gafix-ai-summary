@@ -343,14 +343,32 @@ async function runOne(type,payload,systemPrompt,url){
     const rawText=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     const inTok=data.usage?.input_tokens||0, outTok=data.usage?.output_tokens||0;
     const sysEst=Math.round(systemPrompt.length/4);
-    const cost=(inTok*3+outTok*15)/1e6;
-    const cachedCost=((inTok-sysEst)*3+sysEst*0.30+outTok*15)/1e6;
+    const cost=(inTok*2+outTok*10)/1e6;
+    const cachedCost=((inTok-sysEst)*2+sysEst*0.20+outTok*10)/1e6;
 
     state.results[type]={inTok,outTok,cost,cachedCost,elapsed,parsed:null};
 
     let result;
-    try{result=JSON.parse(rawText.replace(/```json|```/g,'').trim());state.results[type].parsed=result}
-    catch(e){pane.innerHTML='<div class="sum-block"><div class="sum-text">'+rawText.split('\n\n').map(p=>esc(p)).join('</div><div class="sum-text">')+'</div></div>';setTabDot(type,'done');return}
+    try{
+      // Strip markdown fences if present
+      let cleaned=rawText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      // Extract the JSON object even if there's text before/after it
+      const jsonStart=cleaned.indexOf('{');
+      const jsonEnd=cleaned.lastIndexOf('}');
+      if(jsonStart!==-1&&jsonEnd>jsonStart){
+        cleaned=cleaned.slice(jsonStart,jsonEnd+1);
+      }
+      // Fix trailing commas before } or ] (common LLM mistake)
+      cleaned=cleaned.replace(/,\s*([}\]])/g,'$1');
+      // Fix unescaped newlines inside string values
+      cleaned=cleaned.replace(/(?<=":[ ]*"[^"]*)\n/g,'\\n');
+      result=JSON.parse(cleaned);
+      state.results[type].parsed=result;
+    }catch(e){
+      console.error('JSON parse failed for',type,':',e.message,'raw:',rawText.slice(0,200));
+      pane.innerHTML='<div class="sum-block"><div class="sum-text">'+rawText.split('\n\n').map(p=>esc(p)).join('</div><div class="sum-text">')+'</div></div>';
+      setTabDot(type,'done');return;
+    }
 
     renderSummary(pane,result,{inTok,outTok,cost,cachedCost,elapsed});
     setTabDot(type,'done');
