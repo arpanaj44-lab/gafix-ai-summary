@@ -19,7 +19,17 @@ const PROVIDER = process.env.LLM_PROVIDER || 'bedrock';
 let bedrockClient;
 function getBedrockClient() {
   if (!bedrockClient) {
-    bedrockClient = new BedrockRuntimeClient({ region: process.env.AWS_REGION || 'us-east-1' });
+    const config = { region: process.env.AWS_REGION || 'us-east-1' };
+    // Only needed if your cloud team issues temporary/STS credentials
+    // (you'll know because you'll also have an AWS_SESSION_TOKEN value).
+    if (process.env.AWS_SESSION_TOKEN) {
+      config.credentials = {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        sessionToken: process.env.AWS_SESSION_TOKEN,
+      };
+    }
+    bedrockClient = new BedrockRuntimeClient(config);
   }
   return bedrockClient;
 }
@@ -92,13 +102,25 @@ async function handleBedrock(req, res, { system, messages, max_tokens }) {
   });
 
   const response = await client.send(command);
-  const text = response.output.message.content[0].text;
+
+  // Extract text from Bedrock's response — handle multiple possible shapes
+  const outputContent = response.output?.message?.content || [];
+  let text = '';
+  for (const block of outputContent) {
+    if (block.text) { text += block.text; }
+    else if (typeof block === 'string') { text += block; }
+  }
+
+  // Log for debugging if text is empty
+  if (!text) {
+    console.error('[bedrock] Empty text. Raw output:', JSON.stringify(response.output));
+  }
 
   return res.status(200).json({
     content: [{ type: 'text', text }],
     usage: {
-      input_tokens: response.usage.inputTokens,
-      output_tokens: response.usage.outputTokens,
+      input_tokens: response.usage?.inputTokens || 0,
+      output_tokens: response.usage?.outputTokens || 0,
     },
   });
 }
