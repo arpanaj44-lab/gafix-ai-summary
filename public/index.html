@@ -213,94 +213,43 @@ function optimizeComp(raw){
 // System prompts — personalized, no fluff, business-context-aware
 const PROMPT_GA=`You write a personalized TOP ISSUES summary for a GA4 audit on GAfix.ai.
 
-CRITICAL — PERSONALIZE EVERYTHING:
-- First, figure out what this business IS from the URL, property name, key events, and integrations.
-  - "purchase" events = they sell things. Talk about revenue, orders, checkout.
-  - "generate_lead" / "form_submit" = lead-gen business. Talk about lead quality, cost per lead, demo bookings.
-  - "sign_up" events = SaaS / subscription. Talk about trial signups, activation, subscription revenue.
-- Name the business directly: "For a digital marketing institute like IIDE where student enrollments drive revenue..." not "Your setup has issues..."
-- Every problem MUST connect to a business consequence specific to THEIR type: "your enrollment form completions may be double-counted" not "event tracking has issues"
-- Use actual numbers from the data: "13% of events", "94 tagging failures", "36.9% of sessions"
-- If Google Ads is linked, they're spending real money — frame every issue as wasted ad spend: "your Google Ads is optimizing on noisy signals because..."
+PERSONALIZE — this is the most important rule:
+- Infer the business type AND their specific conversion goal from the data:
+  - IIDE (iide.co) = digital marketing institute → goal is course enrollments and student inquiries
+  - CallBack HVAC = home services → goal is booked service calls and quote requests
+  - Mokkup.ai = SaaS tool → goal is trial signups and paid conversions
+- Open with: "For a [specific business type] like [Name] where [their specific goal] drives revenue..."
+- Every issue must reference their goal: "your enrollment form submissions" not "your conversions"
+- If Google Ads is linked: "your Google Ads is spending money optimizing on [specific problem]"
+- Cite real numbers: "13% of events", "11 of 19 key events never fired", "25.6% of sessions"
 
-SCORING TONE:
-- Under 40: their setup is fundamentally broken, most numbers can't be trusted
-- 40-59: partially works, but real money is being wasted on decisions built from bad data
-- 60-84: mostly works, but specific gaps are costing them — name exactly which ones
-- 85+: close to clean, just a few things to tidy up
+SCORING: <40 broken, 40-59 partially works, 60-84 gaps costing money, 85+ almost clean.
 
-DO NOT include a "what's working well" or "what's clean" section. Focus only on what's broken and what to fix.
+LENGTH: Each text field MAX 80 words. Pick only the top 2-3 issues. Be punchy.
 
-Return ONLY this JSON (no markdown fences, no backticks, no preamble):
-{
-  "headline": "For a [business type] like [name] where [their goal] is the priority — [what's broken and what it's costing them]. 1-2 sentences max.",
-  "subtext": "N of your X tracking areas need attention. Fixing these 3 first closes most of the gap",
-  "sections": [
-    {"subhead": "What's breaking", "text": "2-3 sentences. Name the specific checkpoints, cite the numbers, explain the business impact for THIS type of business."},
-    {"subhead": "Fix these first", "text": "Top 3 checkpoints in priority order. For each, one line on WHY it matters for their business specifically."}
-  ],
-  "chips": ["top 3-5 failing checkpoint names"],
-  "actions": [
-    {"checkpoint": "name", "why": "1 sentence — what this costs THIS business specifically", "source": "ga"},
-    {"checkpoint": "name", "why": "business-specific reason", "source": "ga"},
-    {"checkpoint": "name", "why": "business-specific reason", "source": "ga"}
-  ],
-  "business_type": "ecommerce|lead-gen|saas|content|other"
-}`;
+Return ONLY a single-line JSON object (no newlines inside values, no markdown fences):
+{"headline":"1-2 sentences. Business-specific.","subtext":"N of X areas need attention. Fixing these 3 first closes most of the gap","sections":[{"subhead":"What's breaking","text":"2-3 short sentences. Top issues with numbers and business impact."},{"subhead":"Fix these first","text":"Top 3 checkpoints, one line each with business-specific why."}],"chips":["top 3 failing checkpoints"],"actions":[{"checkpoint":"name","why":"1 sentence","source":"ga"},{"checkpoint":"name","why":"1 sentence","source":"ga"},{"checkpoint":"name","why":"1 sentence","source":"ga"}],"business_type":"ecommerce|lead-gen|saas|content|other"}`;
 
 const PROMPT_GTM=`You write a personalized TOP ISSUES summary for a GTM container audit on GAfix.ai.
 
-PERSONALIZE: Use the property name, URL, and checkpoint data to understand what kind of business this is. Frame every issue in terms of what it costs THIS business — not generic "your tags have issues."
+PERSONALIZE: Infer the business type from the data. Frame every issue as what it costs THIS business's specific conversion goal — not generic "your tags have issues." Name the business.
 
-- Paused tags = "old tracking code sitting in your container that could reactivate and mess up your data"
-- Misfiring tags = "some tracking runs twice, inflating your conversion numbers — if you're running ads, Google Ads is optimizing on doubled signals"
-- Missing triggers = "actions your visitors take that aren't being recorded at all"
+GTM priority: Container Hygiene > Events & Parameters > Attribution > Tag Firing > E-commerce.
+When 2+ fail in same category: name top 2 + "and N other issues" + consequence for their business.
 
-GTM priority order: Container Hygiene > Events & Parameters > Attribution > Tag Firing > E-commerce.
-When 2+ checkpoints fail in same category: name top 2 + "and N other issues" + business consequence.
+LENGTH: Each text field MAX 60 words. Be punchy.
 
-DO NOT include "what's clean" section.
+Return ONLY a single-line JSON object (no newlines inside values, no markdown fences):
+{"headline":"1-2 sentences about this business's GTM problems.","subtext":"N of 5 areas need attention.","sections":[{"subhead":"What's breaking","text":"2-3 short sentences."},{"subhead":"Fix these first","text":"Top 2-3 checkpoints, one line each."}],"chips":["top 3 failing"],"actions":[{"checkpoint":"name","why":"1 sentence","source":"gtm"},{"checkpoint":"name","why":"1 sentence","source":"gtm"}]}`;
 
-Return ONLY this JSON (no markdown fences):
-{
-  "headline": "Your GTM container for [site] has [specific problem] — [business consequence]. 1-2 sentences.",
-  "subtext": "N of your 5 tracking areas need attention.",
-  "sections": [
-    {"subhead": "What's breaking", "text": "2-3 sentences. Specific problems with business impact."},
-    {"subhead": "Fix these first", "text": "Top 2-3 checkpoints with business-specific reasoning."}
-  ],
-  "chips": ["top 3 failing checkpoints"],
-  "actions": [
-    {"checkpoint": "name", "why": "business-specific reason", "source": "gtm"},
-    {"checkpoint": "name", "why": "business-specific reason", "source": "gtm"}
-  ]
-}`;
+const PROMPT_COMP=`You write a personalized TOP ISSUES summary for a Compliance audit on GAfix.ai.
 
-const PROMPT_COMP=`You write a personalized TOP ISSUES summary for a Compliance (consent & tracker) audit on GAfix.ai.
+PERSONALIZE: Name the business and domain. Be specific about which law applies and what the violation is. Frame as legal + data quality risk for THIS business.
 
-PERSONALIZE: Name the business, name the domain, name the law. Not "your site may have compliance issues" but "iide.co has no consent banner for Virginia visitors — VCDPA requires an opt-out mechanism before any tracking fires."
+LENGTH: Each text field MAX 60 words.
 
-- No banner = "visitors can't say no to tracking, which is a legal requirement in [region] under [law]"
-- Trackers outside GTM = "these scripts bypass your consent controls entirely — even if you add a banner tomorrow, these won't respect it"
-- Failed rejection = "when someone clicks reject, tracking continues anyway — this is the exact scenario regulators look for"
-
-Frame as real business risk: fines, legal exposure, and also polluted analytics data (unconsented hits distort your numbers).
-
-DO NOT include "what's clean" section.
-
-Return ONLY this JSON (no markdown fences):
-{
-  "headline": "[domain] [specific consent problem] — [legal/business consequence]. 1-2 sentences.",
-  "subtext": "N domain(s) checked, N issues found",
-  "sections": [
-    {"subhead": "Consent gaps", "text": "Per domain: banner present? Rejection works? Which law applies? Be specific."},
-    {"subhead": "Fix these first", "text": "Top actions with business-specific reasoning."}
-  ],
-  "chips": ["specific problem labels like 'No consent banner · mokkup.ai' or 'Trackers outside GTM'"],
-  "actions": [
-    {"checkpoint": "name", "why": "business-specific reason", "source": "comp"}
-  ]
-}`;
+Return ONLY a single-line JSON object (no newlines inside values, no markdown fences):
+{"headline":"1-2 sentences. [domain] specific consent problem and consequence.","subtext":"N domain(s) checked, N issues","sections":[{"subhead":"Consent gaps","text":"Per domain: banner? Rejection works? Which law?"},{"subhead":"Fix these first","text":"Top actions, one line each."}],"chips":["specific problems like 'No banner · domain.com'"],"actions":[{"checkpoint":"name","why":"1 sentence","source":"comp"}]}`;
 
 // Generate
 document.getElementById('genBtn').addEventListener('click', generateAll);
@@ -350,22 +299,30 @@ async function runOne(type,payload,systemPrompt,url){
 
     let result;
     try{
-      // Strip markdown fences if present
       let cleaned=rawText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-      // Extract the JSON object even if there's text before/after it
       const jsonStart=cleaned.indexOf('{');
       const jsonEnd=cleaned.lastIndexOf('}');
-      if(jsonStart!==-1&&jsonEnd>jsonStart){
-        cleaned=cleaned.slice(jsonStart,jsonEnd+1);
+      if(jsonStart!==-1&&jsonEnd>jsonStart) cleaned=cleaned.slice(jsonStart,jsonEnd+1);
+
+      // THE FIX: collapse all newlines/returns to spaces before parsing.
+      // JSON.parse handles single-line JSON identically to pretty-printed.
+      // This kills the #1 LLM JSON failure: literal newlines inside string values.
+      cleaned=cleaned.replace(/[\r\n]+/g,' ');
+      cleaned=cleaned.replace(/,\s*([}\]])/g,'$1'); // trailing commas
+
+      try{ result=JSON.parse(cleaned) }
+      catch(e1){
+        // Truncation repair: close open brackets
+        let repair=cleaned.replace(/,\s*"[^"]*$/,'').replace(/,\s*$/,'');
+        const ob=(repair.match(/{/g)||[]).length-(repair.match(/}/g)||[]).length;
+        const oa=(repair.match(/\[/g)||[]).length-(repair.match(/\]/g)||[]).length;
+        for(let i=0;i<oa;i++) repair+=']';
+        for(let i=0;i<ob;i++) repair+='}';
+        result=JSON.parse(repair);
       }
-      // Fix trailing commas before } or ] (common LLM mistake)
-      cleaned=cleaned.replace(/,\s*([}\]])/g,'$1');
-      // Fix unescaped newlines inside string values
-      cleaned=cleaned.replace(/(?<=":[ ]*"[^"]*)\n/g,'\\n');
-      result=JSON.parse(cleaned);
       state.results[type].parsed=result;
     }catch(e){
-      console.error('JSON parse failed for',type,':',e.message,'raw:',rawText.slice(0,200));
+      console.error('JSON parse failed for',type,':',e.message);
       pane.innerHTML='<div class="sum-block"><div class="sum-text">'+rawText.split('\n\n').map(p=>esc(p)).join('</div><div class="sum-text">')+'</div></div>';
       setTabDot(type,'done');return;
     }
