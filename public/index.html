@@ -210,70 +210,95 @@ function optimizeComp(raw){
   p.trackers_outside_gtm=(comp.data?.missing||[]).map(m=>m.details||m.name||'');return p;
 }
 
-// System prompts — compact output, subheadings, plain language
-const PROMPT_GA=`You write the TOP ISSUES summary block for a GA4 audit report on GAfix.ai.
+// System prompts — personalized, no fluff, business-context-aware
+const PROMPT_GA=`You write a personalized TOP ISSUES summary for a GA4 audit on GAfix.ai.
 
-RULES:
-- Infer business type from key events, URL, integrations (purchase=ecom, generate_lead=lead-gen, sign_up=SaaS)
-- If ads_detected=true, frame around ad spend. If false, frame around decisions/reporting.
-- Write in PLAIN ENGLISH for a business owner. No analytics jargon.
-- Be SHORT. This is a summary card, not an essay.
+CRITICAL — PERSONALIZE EVERYTHING:
+- First, figure out what this business IS from the URL, property name, key events, and integrations.
+  - "purchase" events = they sell things. Talk about revenue, orders, checkout.
+  - "generate_lead" / "form_submit" = lead-gen business. Talk about lead quality, cost per lead, demo bookings.
+  - "sign_up" events = SaaS / subscription. Talk about trial signups, activation, subscription revenue.
+- Name the business directly: "For a digital marketing institute like IIDE where student enrollments drive revenue..." not "Your setup has issues..."
+- Every problem MUST connect to a business consequence specific to THEIR type: "your enrollment form completions may be double-counted" not "event tracking has issues"
+- Use actual numbers from the data: "13% of events", "94 tagging failures", "36.9% of sessions"
+- If Google Ads is linked, they're spending real money — frame every issue as wasted ad spend: "your Google Ads is optimizing on noisy signals because..."
 
-Return ONLY this JSON:
+SCORING TONE:
+- Under 40: their setup is fundamentally broken, most numbers can't be trusted
+- 40-59: partially works, but real money is being wasted on decisions built from bad data
+- 60-84: mostly works, but specific gaps are costing them — name exactly which ones
+- 85+: close to clean, just a few things to tidy up
+
+DO NOT include a "what's working well" or "what's clean" section. Focus only on what's broken and what to fix.
+
+Return ONLY this JSON (no markdown fences, no backticks, no preamble):
 {
-  "headline": "1-2 sentences max. What's broken and what it's costing them. Business-specific.",
+  "headline": "For a [business type] like [name] where [their goal] is the priority — [what's broken and what it's costing them]. 1-2 sentences max.",
   "subtext": "N of your X tracking areas need attention. Fixing these 3 first closes most of the gap",
   "sections": [
-    {"subhead": "What's not working", "text": "2-3 sentences about the biggest problems with real numbers."},
-    {"subhead": "What's working well", "text": "1 sentence about what's clean."},
-    {"subhead": "Fix these first", "text": "1-2 sentences naming top 3 checkpoints in priority order."}
+    {"subhead": "What's breaking", "text": "2-3 sentences. Name the specific checkpoints, cite the numbers, explain the business impact for THIS type of business."},
+    {"subhead": "Fix these first", "text": "Top 3 checkpoints in priority order. For each, one line on WHY it matters for their business specifically."}
   ],
-  "chips": ["top 3 failing checkpoint names"],
+  "chips": ["top 3-5 failing checkpoint names"],
   "actions": [
-    {"checkpoint": "name", "why": "1 sentence plain-language reason this matters", "source": "ga"},
-    {"checkpoint": "name", "why": "reason", "source": "ga"},
-    {"checkpoint": "name", "why": "reason", "source": "ga"}
+    {"checkpoint": "name", "why": "1 sentence — what this costs THIS business specifically", "source": "ga"},
+    {"checkpoint": "name", "why": "business-specific reason", "source": "ga"},
+    {"checkpoint": "name", "why": "business-specific reason", "source": "ga"}
   ],
   "business_type": "ecommerce|lead-gen|saas|content|other"
 }`;
 
-const PROMPT_GTM=`You write the TOP ISSUES summary block for a GTM audit report on GAfix.ai.
-Infer context from the data. Write PLAIN ENGLISH. Be SHORT.
+const PROMPT_GTM=`You write a personalized TOP ISSUES summary for a GTM container audit on GAfix.ai.
 
-GTM priority: Container Hygiene > Events & Parameters > Attribution > Tag Firing > E-commerce.
-When 2+ checkpoints fail in one category, name top 2 + "and N other issues" + consequence.
+PERSONALIZE: Use the property name, URL, and checkpoint data to understand what kind of business this is. Frame every issue in terms of what it costs THIS business — not generic "your tags have issues."
 
-Return ONLY this JSON:
+- Paused tags = "old tracking code sitting in your container that could reactivate and mess up your data"
+- Misfiring tags = "some tracking runs twice, inflating your conversion numbers — if you're running ads, Google Ads is optimizing on doubled signals"
+- Missing triggers = "actions your visitors take that aren't being recorded at all"
+
+GTM priority order: Container Hygiene > Events & Parameters > Attribution > Tag Firing > E-commerce.
+When 2+ checkpoints fail in same category: name top 2 + "and N other issues" + business consequence.
+
+DO NOT include "what's clean" section.
+
+Return ONLY this JSON (no markdown fences):
 {
-  "headline": "1-2 sentences. What's wrong with the container and what it's causing.",
-  "subtext": "N of your 5 tracking areas need attention. Fixing these 3 first closes most of the gap",
+  "headline": "Your GTM container for [site] has [specific problem] — [business consequence]. 1-2 sentences.",
+  "subtext": "N of your 5 tracking areas need attention.",
   "sections": [
-    {"subhead": "What's not working", "text": "2-3 sentences about biggest problems."},
-    {"subhead": "What's clean", "text": "1 sentence."},
-    {"subhead": "Fix these first", "text": "Top 3 checkpoints."}
+    {"subhead": "What's breaking", "text": "2-3 sentences. Specific problems with business impact."},
+    {"subhead": "Fix these first", "text": "Top 2-3 checkpoints with business-specific reasoning."}
   ],
   "chips": ["top 3 failing checkpoints"],
   "actions": [
-    {"checkpoint": "name", "why": "reason", "source": "gtm"},
-    {"checkpoint": "name", "why": "reason", "source": "gtm"}
+    {"checkpoint": "name", "why": "business-specific reason", "source": "gtm"},
+    {"checkpoint": "name", "why": "business-specific reason", "source": "gtm"}
   ]
 }`;
 
-const PROMPT_COMP=`You write the TOP ISSUES summary block for a Compliance (consent & tracker) audit on GAfix.ai.
-Write PLAIN ENGLISH. Be SHORT. Frame as business/legal risk.
+const PROMPT_COMP=`You write a personalized TOP ISSUES summary for a Compliance (consent & tracker) audit on GAfix.ai.
 
-Return ONLY this JSON:
+PERSONALIZE: Name the business, name the domain, name the law. Not "your site may have compliance issues" but "iide.co has no consent banner for Virginia visitors — VCDPA requires an opt-out mechanism before any tracking fires."
+
+- No banner = "visitors can't say no to tracking, which is a legal requirement in [region] under [law]"
+- Trackers outside GTM = "these scripts bypass your consent controls entirely — even if you add a banner tomorrow, these won't respect it"
+- Failed rejection = "when someone clicks reject, tracking continues anyway — this is the exact scenario regulators look for"
+
+Frame as real business risk: fines, legal exposure, and also polluted analytics data (unconsented hits distort your numbers).
+
+DO NOT include "what's clean" section.
+
+Return ONLY this JSON (no markdown fences):
 {
-  "headline": "1-2 sentences. Consent state and biggest risk.",
-  "subtext": "short count of domains checked + issues found",
+  "headline": "[domain] [specific consent problem] — [legal/business consequence]. 1-2 sentences.",
+  "subtext": "N domain(s) checked, N issues found",
   "sections": [
-    {"subhead": "Consent status", "text": "1-2 sentences per domain. Banner present? Rejection respected?"},
-    {"subhead": "Tracker health", "text": "1 sentence. Scripts outside GTM?"},
-    {"subhead": "Fix these first", "text": "Top actions."}
+    {"subhead": "Consent gaps", "text": "Per domain: banner present? Rejection works? Which law applies? Be specific."},
+    {"subhead": "Fix these first", "text": "Top actions with business-specific reasoning."}
   ],
-  "chips": ["problem areas"],
+  "chips": ["specific problem labels like 'No consent banner · mokkup.ai' or 'Trackers outside GTM'"],
   "actions": [
-    {"checkpoint": "name", "why": "reason", "source": "comp"}
+    {"checkpoint": "name", "why": "business-specific reason", "source": "comp"}
   ]
 }`;
 
