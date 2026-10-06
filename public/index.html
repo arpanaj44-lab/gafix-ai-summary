@@ -252,13 +252,13 @@ BENCHMARKING:
 - Give each a realistic benchmark score for a well-configured GA4 setup
 
 WHAT NEEDS WORK:
-- Top 5-6 issues across GA4, GTM, compliance. Each has severity (HIGH/FIX), title, 1-sentence IMPACT (what this costs the business — not what's technically wrong), source (ga/gtm/comp)
+- Top 4-5 issues across GA4, GTM, compliance (not more — be selective). Each has severity (HIGH/FIX), title, 1-sentence IMPACT (what this costs the business — not what's technically wrong), source (ga/gtm/comp)
 - Priority: revenue > attribution > measurement > container > compliance
 
 WHAT'S WORKING:
 - 2-3 short bullet points. Keeps it from feeling like a total teardown.
 
-LENGTH: Keep total under 900 tokens. Headline max 2 sentences. Each impact max 1 sentence.
+LENGTH: This is strict — the entire JSON response must fit comfortably under 1400 tokens total, no exceptions. Headline max 2 sentences. Each impact statement max 1 sentence. Max 3 benchmarks. Max 2-3 working bullets. If you're running long, cut detail from issue descriptions before cutting entire issues.
 
 Return ONLY single-line JSON (no newlines inside values, no markdown fences):
 {"headline":"1-2 sentences. Business name + biggest risk.","impact":{"sessions_broken":"X of Y (Z%)","key_events_status":"N of M firing — list actual names not firing","paid_sources":[{"source":"Google Ads","sessions":39364,"issue":"specific issue"},{"source":"Meta","sessions":8200,"issue":"specific issue"}],"compliance":"1-line status"},"benchmarks":[{"name":"competitor","score":78,"note":"context"},{"name":"competitor","score":82}],"your_score":53,"issues":[{"severity":"HIGH","title":"title","impact":"1 sentence business impact","source":"ga"}],"working":["bullet 1","bullet 2"],"plan_trigger":"tracking_broken|ads_leaking|compliance_risk|container_messy|mostly_clean"}`;
@@ -283,7 +283,7 @@ async function generate(){
   const t0=performance.now();
 
   try{
-    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:2048,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}]})});
+    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:3000,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}]})});
     const data=await resp.json();const elapsed=((performance.now()-t0)/1000).toFixed(1);
     if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
 
@@ -291,23 +291,22 @@ async function generate(){
     const inTok=data.usage?.input_tokens||0,outTok=data.usage?.output_tokens||0;
     const cost=(inTok*2+outTok*10)/1e6;
 
-    // Parse JSON
+    // Parse JSON — with robust truncation repair
     let result;
     try{
       let cleaned=rawText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
       const s=cleaned.indexOf('{'),e=cleaned.lastIndexOf('}');
       if(s!==-1&&e>s) cleaned=cleaned.slice(s,e+1);
       cleaned=cleaned.replace(/[\r\n]+/g,' ').replace(/,\s*([}\]])/g,'$1');
-      try{result=JSON.parse(cleaned)}catch(e1){
-        let repair=cleaned.replace(/,\s*"[^"]*$/,'').replace(/,\s*$/,'');
-        const ob=(repair.match(/{/g)||[]).length-(repair.match(/}/g)||[]).length;
-        const oa=(repair.match(/\[/g)||[]).length-(repair.match(/\]/g)||[]).length;
-        for(let i=0;i<oa;i++)repair+=']';for(let i=0;i<ob;i++)repair+='}';
-        result=JSON.parse(repair);
+      try{
+        result=JSON.parse(cleaned);
+      }catch(e1){
+        result=repairTruncatedJSON(cleaned);
       }
     }catch(e){
-      body.innerHTML='<div class="sum-text">'+rawText.split('\n\n').map(p=>'<p>'+esc(p)+'</p>').join('')+'</div>';
-      dot.className='out-dot done';status.textContent='Done';btn.disabled=false;btn.textContent='Regenerate';return;
+      console.error('JSON parse + repair both failed:',e.message,'raw length:',rawText.length);
+      body.innerHTML='<div class="err-box">The AI response was cut off before it finished (ran out of output room). Click Regenerate to try again — this usually resolves on retry.</div>';
+      dot.className='out-dot';status.textContent='Incomplete response';btn.disabled=false;btn.textContent='Regenerate';return;
     }
 
     // Render
@@ -452,6 +451,30 @@ function renderPlanBlock(trigger,issues){
   h+='<div class="pb-alt">'+annual+' · <a href="https://www.gafix.ai/pricing" target="_blank" rel="noopener">Compare all plans →</a></div>';
   h+='</div>';
   return h;
+}
+
+// Repairs JSON truncated mid-stream (hit token limit before finishing).
+// Trims from the end in increasing steps, closing any dangling open quote
+// and any unclosed brackets, until a valid parse succeeds.
+function repairTruncatedJSON(str){
+  const maxTrim=Math.min(500,Math.floor(str.length*0.3));
+  for(let cut=0;cut<=maxTrim;cut+=1){
+    let candidate=str.slice(0,str.length-cut);
+    candidate=candidate.replace(/,\s*$/,'').replace(/:\s*$/,'').trim();
+    if(!candidate)continue;
+    // If there's an unterminated string literal (odd count of unescaped quotes), close it
+    const quoteMatches=candidate.match(/(?<!\\)"/g)||[];
+    let attempt=candidate;
+    if(quoteMatches.length%2!==0) attempt+='"';
+    // Drop a trailing dangling comma again after quote-close
+    attempt=attempt.replace(/,\s*$/,'');
+    const openBrace=(attempt.match(/{/g)||[]).length-(attempt.match(/}/g)||[]).length;
+    const openBrack=(attempt.match(/\[/g)||[]).length-(attempt.match(/\]/g)||[]).length;
+    for(let i=0;i<openBrack;i++)attempt+=']';
+    for(let i=0;i<openBrace;i++)attempt+='}';
+    try{return JSON.parse(attempt)}catch(e){/* try trimming more */}
+  }
+  throw new Error('Could not repair truncated JSON after '+maxTrim+' trim attempts');
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
