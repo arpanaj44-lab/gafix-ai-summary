@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>GAfix AI Summary — POC v4</title>
+<title>GAfix AI Summary — POC v5</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0b0e13;--surface:#13171e;--raised:#1a1f28;--border:#262d3a;--text:#dfe3ea;--muted:#7a8494;--accent:#5b8def;--accent-dim:rgba(91,141,239,.1);--green:#3dd68c;--green-dim:rgba(61,214,140,.08);--amber:#f0b429;--amber-dim:rgba(240,180,41,.07);--red:#ef6461;--red-dim:rgba(239,100,97,.06);--purple:#a78bfa;--purple-dim:rgba(167,139,250,.08);--radius:10px;--font:'DM Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -21,7 +21,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 .url-row input{width:100%;font-family:var(--font);font-size:13px;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;outline:none}
 .url-row input:focus{border-color:var(--accent)}
 .url-row input::placeholder{color:var(--muted)}
-.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.upload-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px}
 @media(max-width:640px){.upload-grid{grid-template-columns:1fr}}
 .upload-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
 .uc-label{font-size:11px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:5px}
@@ -35,74 +35,78 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 .dz-text{font-size:11px;color:var(--muted);pointer-events:none}.dz-text strong{color:var(--accent)}
 .drop-zone.loaded{border-style:solid;border-color:var(--green)}.drop-zone.loaded .dz-text{color:var(--green);font-size:10px}
 .uc-meta{font-size:10px;color:var(--muted);margin-top:4px}.uc-meta span{font-family:var(--mono);color:var(--text)}
+/* Spend row */
+.spend-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:12px;flex-wrap:wrap}
+.spend-row.show{display:flex}
+.spend-row label{font-size:11px;color:var(--muted);white-space:nowrap}
+.spend-input{display:flex;align-items:center;background:var(--raised);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.spend-prefix{padding:0 0 0 8px;font-size:12px;color:var(--muted);font-weight:600}
+.spend-input input{width:100px;font-family:var(--font);font-size:12px;background:transparent;border:none;color:var(--text);padding:6px 8px 6px 4px;outline:none}
+.spend-input input::placeholder{color:var(--muted)}
+/* Generate */
 .gen-row{text-align:center;margin:16px 0}
 .gen-btn{font-family:var(--font);font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;border:none;padding:11px 32px;border-radius:8px;cursor:pointer;transition:opacity .15s}
 .gen-btn:hover{opacity:.92}.gen-btn:disabled{opacity:.4;cursor:not-allowed}
-
-/* Output card */
+/* Output */
 .out-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
-.out-tabs{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;-webkit-overflow-scrolling:touch}
-.out-tab{padding:9px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:5px}
-.out-tab:hover{color:var(--text)}.out-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
-.t-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-.t-dot.pending{background:var(--muted)}.t-dot.running{background:var(--amber);animation:pulse 1s infinite}.t-dot.done{background:var(--green)}.t-dot.err{background:var(--red)}.t-dot.skip{background:var(--border)}.t-dot.waiting{background:var(--purple);animation:pulse 1.5s infinite}
+.out-bar{padding:10px 16px;background:var(--raised);display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--muted);border-bottom:1px solid var(--border)}
+.out-dot{width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.out-dot.live{background:var(--amber);animation:pulse 1s infinite}
+.out-dot.done{background:var(--green)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.out-pane{display:none;padding:18px}.out-pane.active{display:block}
+.out-body{padding:18px}
 .placeholder{color:var(--muted);font-size:12px;text-align:center;padding:18px 8px}
-
-/* Summary block — matches GAfix report UI */
-.sum-block{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:0}
-.sum-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:5px}
-.sum-label .tri{font-size:13px}
-.sum-headline{font-size:15px;font-weight:700;line-height:1.45;margin-bottom:6px;letter-spacing:-.15px}
-.sum-sub{font-size:12px;color:var(--muted);margin-bottom:10px}
-.sum-subhead{font-size:12px;font-weight:600;color:var(--accent);margin:10px 0 4px;letter-spacing:-.1px}
-.sum-text{font-size:13px;line-height:1.65;margin-bottom:8px}
-.sum-text:last-child{margin-bottom:0}
-.sum-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
-.sc{font-size:10px;font-weight:600;padding:4px 10px;border-radius:14px;background:var(--red-dim);color:var(--red);border:1px solid rgba(239,100,97,.18);cursor:pointer;transition:opacity .15s}
-.sc:hover{opacity:.8}
-.sc-amber{background:var(--amber-dim);color:var(--amber);border-color:rgba(240,180,41,.2)}
-
-/* Action required tab */
-.action-item{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
-.action-item:last-child{margin-bottom:0}
-.action-num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center;flex-shrink:0;margin-top:2px}
-.action-body{flex:1;min-width:0}
-.action-title{font-size:13px;font-weight:700;margin-bottom:2px}
-.action-desc{font-size:12px;color:var(--muted);line-height:1.55}
-.action-source{font-size:10px;font-weight:600;margin-top:4px;padding:2px 7px;border-radius:8px;display:inline-block}
-.action-source.ga{background:var(--accent-dim);color:var(--accent)}
-.action-source.gtm{background:var(--purple-dim);color:var(--purple)}
-.action-source.comp{background:var(--green-dim);color:var(--green)}
-
+/* Summary rendered */
+.sum-headline{font-size:16px;font-weight:700;line-height:1.45;margin-bottom:10px;letter-spacing:-.2px}
+.sum-section{margin-bottom:14px}
+.sum-section:last-child{margin-bottom:0}
+.sum-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;display:flex;align-items:center;gap:5px}
+.sum-label.warn{color:var(--amber)}.sum-label.fix{color:var(--accent)}.sum-label.bench{color:var(--purple)}.sum-label.plan{color:var(--green)}
+.sum-text{font-size:13px;line-height:1.65;color:var(--text)}
+/* Issue cards */
+.issue-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+@media(max-width:640px){.issue-grid{grid-template-columns:1fr}}
+.issue-card{background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.issue-card .ic-badge{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.ic-badge.high{color:var(--red)}.ic-badge.fix{color:var(--amber)}.ic-badge.info{color:var(--accent)}
+.issue-card .ic-title{font-size:12px;font-weight:700;margin-bottom:2px}
+.issue-card .ic-desc{font-size:11px;color:var(--muted);line-height:1.5}
+.issue-card .ic-source{font-size:9px;font-weight:600;margin-top:4px;padding:1px 6px;border-radius:6px;display:inline-block}
+.ic-source.ga{background:var(--accent-dim);color:var(--accent)}
+.ic-source.gtm{background:var(--purple-dim);color:var(--purple)}
+.ic-source.comp{background:var(--green-dim);color:var(--green)}
+/* Benchmark */
+.bench-list{margin-top:6px}
+.bench-item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
+.bench-item .b-name{font-weight:600;min-width:120px}
+.bench-item .b-bar{flex:1;height:6px;background:var(--raised);border-radius:3px;overflow:hidden}
+.bench-item .b-fill{height:100%;border-radius:3px;transition:width .5s}
+.b-fill.good{background:var(--green)}.b-fill.mid{background:var(--amber)}.b-fill.bad{background:var(--red)}
+.bench-item .b-score{font-family:var(--mono);font-size:11px;min-width:36px;text-align:right}
+/* Plan block */
+.plan-block{margin-top:14px;padding:14px;border-radius:8px;background:linear-gradient(135deg,var(--accent-dim),var(--purple-dim));border:1px solid var(--border)}
+.plan-block .pb-reason{font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.55}
+.plan-block .pb-name{font-size:14px;font-weight:700}
+.plan-block .pb-price{font-size:20px;font-weight:700;color:var(--accent)}
+.plan-block .pb-price span{font-size:12px;font-weight:400;color:var(--muted)}
+.plan-block .pb-features{font-size:11px;color:var(--muted);margin:6px 0 10px;line-height:1.6}
+.plan-block .pb-cta{display:inline-block;font-size:12px;font-weight:600;padding:8px 20px;border-radius:6px;background:var(--accent);color:#fff;text-decoration:none;transition:opacity .15s}
+.plan-block .pb-cta:hover{opacity:.85}
+.plan-block .pb-alt{font-size:10px;color:var(--muted);margin-top:8px}
+.plan-block .pb-alt a{color:var(--accent);text-decoration:none}
 /* Stats */
-.s-meta{margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;font-size:10px;color:var(--muted)}
+.s-meta{margin-top:14px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;font-size:10px;color:var(--muted)}
 .s-meta span{font-family:var(--mono);color:var(--text);font-weight:500}
-.total-bar{margin-top:14px;background:var(--raised);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:none;flex-wrap:wrap;gap:14px;font-size:11px;color:var(--muted)}
-.total-bar.show{display:flex}.total-bar .tb-item span{font-family:var(--mono);font-weight:500;color:var(--text)}
 .err-box{background:var(--red-dim);border:1px solid rgba(239,100,97,.25);border-radius:7px;padding:12px;color:var(--red);font-size:12px}
-.streaming::after{content:'▊';color:var(--accent);animation:blink .8s step-end infinite}
-@keyframes blink{50%{opacity:0}}
-
-/* Plan suggestion */
-.plan-cta{margin-top:14px;padding:12px 14px;border-radius:8px;background:linear-gradient(135deg,var(--accent-dim),var(--purple-dim));border:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.plan-cta .cta-icon{font-size:16px;flex-shrink:0}
-.plan-cta .cta-text{font-size:12px;color:var(--text);line-height:1.55;flex:1;min-width:200px}
-.plan-cta .cta-text strong{color:var(--accent)}
-.plan-cta a{font-size:11px;font-weight:600;color:#fff;background:var(--accent);padding:6px 14px;border-radius:6px;text-decoration:none;white-space:nowrap;transition:opacity .15s}
-.plan-cta a:hover{opacity:.85}
 </style>
 </head>
 <body>
 <div class="shell">
-  <div class="hdr"><div class="hdr-icon">G</div><h1>GAfix AI Summary</h1><span class="tag">POC v4</span></div>
-
+  <div class="hdr"><div class="hdr-icon">G</div><h1>GAfix AI Summary</h1><span class="tag">POC v5</span></div>
   <div class="url-row">
     <label>Website URL</label>
     <input type="text" id="urlInput" placeholder="https://www.example.com">
   </div>
-
   <div class="upload-grid">
     <div class="upload-card">
       <div class="uc-label"><div class="uc-dot ga"></div>GA4 Audit<span class="uc-badge required">Required</span></div>
@@ -120,45 +124,26 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
       <div class="uc-meta" id="meta-comp"></div>
     </div>
   </div>
-
-  <div class="gen-row"><button class="gen-btn" id="genBtn" disabled>Upload GA4 JSON to start</button></div>
-
-  <div class="out-card" id="outCard">
-    <div class="out-tabs" id="outTabs">
-      <div class="out-tab" data-pane="actions"><div class="t-dot skip"></div>Action Required</div>
-      <div class="out-tab active" data-pane="ga"><div class="t-dot pending"></div>GA4</div>
-      <div class="out-tab" data-pane="gtm"><div class="t-dot skip"></div>GTM</div>
-      <div class="out-tab" data-pane="comp"><div class="t-dot skip"></div>Compliance</div>
-    </div>
-    <div class="out-pane" id="pane-actions"><div class="placeholder">Top 5 fixes across all audits — generated after summaries complete.</div></div>
-    <div class="out-pane active" id="pane-ga"><div class="placeholder">Upload GA4 audit data and generate.</div></div>
-    <div class="out-pane" id="pane-gtm"><div class="placeholder">Upload GTM audit data (optional).</div></div>
-    <div class="out-pane" id="pane-comp"><div class="placeholder">Upload Compliance audit data (optional).</div></div>
+  <div class="spend-row" id="spendRow">
+    <label>Monthly ad spend (optional, for waste estimate)</label>
+    <div class="spend-input"><span class="spend-prefix">$</span><input type="number" id="adSpend" placeholder="e.g. 5000" min="0"></div>
   </div>
-
-  <div class="total-bar" id="totalBar">
-    <div class="tb-item">Total tokens: <span id="tbTok">—</span></div>
-    <div class="tb-item">Cost: <span id="tbCost">—</span></div>
-    <div class="tb-item">With caching: <span id="tbCache">—</span></div>
+  <div class="gen-row"><button class="gen-btn" id="genBtn" disabled>Upload GA4 JSON to start</button></div>
+  <div class="out-card">
+    <div class="out-bar"><div class="out-dot" id="outDot"></div><span id="outStatus">Waiting for input</span></div>
+    <div class="out-body" id="outBody">
+      <div class="placeholder">Upload your audit data and hit generate. One combined AI summary across GA4, GTM, and compliance — with competitive benchmarking and a plan recommendation based on what's actually broken.</div>
+    </div>
   </div>
 </div>
 
 <script>
-const PROXY_ENDPOINT = "/api/summarize";
-const state = { ga:{raw:null,optimized:null}, gtm:{raw:null,optimized:null}, comp:{raw:null,optimized:null}, results:{ga:null,gtm:null,comp:null,actions:null} };
-
-// Tabs
-document.getElementById('outTabs').addEventListener('click', e => {
-  const tab = e.target.closest('.out-tab'); if (!tab) return;
-  document.querySelectorAll('.out-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.out-pane').forEach(p=>p.classList.remove('active'));
-  tab.classList.add('active');
-  document.getElementById('pane-'+tab.dataset.pane).classList.add('active');
-});
+const PROXY_ENDPOINT="/api/summarize";
+const state={ga:{raw:null,optimized:null},gtm:{raw:null,optimized:null},comp:{raw:null,optimized:null}};
 
 // File handling
-document.querySelectorAll('.drop-zone').forEach(dz => {
-  const input=dz.querySelector('input'), type=input.dataset.type;
+document.querySelectorAll('.drop-zone').forEach(dz=>{
+  const input=dz.querySelector('input'),type=input.dataset.type;
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over')});
   dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
   dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files.length)loadFile(type,e.dataTransfer.files[0])});
@@ -168,19 +153,19 @@ document.querySelectorAll('.drop-zone').forEach(dz => {
 function getFileFormat(fn){const e=fn.split('.').pop().toLowerCase();return e==='json'?'json':(e==='md'||e==='markdown')?'md':'text'}
 
 function loadFile(type,file){
-  const dz=document.getElementById('dz-'+type), meta=document.getElementById('meta-'+type), fmt=getFileFormat(file.name);
+  const dz=document.getElementById('dz-'+type),meta=document.getElementById('meta-'+type),fmt=getFileFormat(file.name);
   const reader=new FileReader();
   reader.onload=e=>{
-    const raw=e.target.result, rawSize=(file.size/1024).toFixed(0);
+    const raw=e.target.result,rawSize=(file.size/1024).toFixed(0);
     try{
       if(fmt==='json'){
         const parsed=JSON.parse(raw);
-        let opt; if(type==='ga')opt=optimizeGA(parsed);else if(type==='gtm')opt=optimizeGTM(parsed);else opt=optimizeComp(parsed);
+        let opt;if(type==='ga')opt=optimizeGA(parsed);else if(type==='gtm')opt=optimizeGTM(parsed);else opt=optimizeComp(parsed);
         const optSize=(JSON.stringify(opt).length/1024).toFixed(1);
         state[type]={raw:parsed,optimized:opt,format:'json'};
         dz.classList.add('loaded');dz.querySelector('.dz-text').innerHTML='✓ '+esc(file.name);
         meta.innerHTML=rawSize+' KB → <span>'+optSize+' KB</span>';
-        if(type==='ga'){const u=parsed.account_summary?.streams?.[0]?.url;if(u&&!document.getElementById('urlInput').value)document.getElementById('urlInput').value=u;}
+        if(type==='ga'){const u=parsed.account_summary?.streams?.[0]?.url;if(u&&!document.getElementById('urlInput').value)document.getElementById('urlInput').value=u}
       }else{
         const trimmed=raw.length>80000?raw.slice(0,80000)+'\n[...truncated]':raw;
         state[type]={raw:trimmed,optimized:trimmed,format:fmt};
@@ -188,14 +173,16 @@ function loadFile(type,file){
         meta.innerHTML=rawSize+' KB';
         if(type==='ga'&&!document.getElementById('urlInput').value){const m=raw.match(/https?:\/\/[^\s"',)]+/);if(m)document.getElementById('urlInput').value=m[0]}
       }
-      setTabDot(type,'pending');if(type!=='ga')setTabDot('actions','skip');
-      if(state.ga.optimized){document.getElementById('genBtn').disabled=false;document.getElementById('genBtn').textContent='Generate AI Summaries'}
+      if(state.ga.optimized){
+        document.getElementById('genBtn').disabled=false;
+        document.getElementById('genBtn').textContent='Generate AI Summary';
+        document.getElementById('spendRow').classList.add('show');
+      }
     }catch(err){dz.querySelector('.dz-text').innerHTML='<span style="color:var(--red)">Error: '+esc(err.message.slice(0,60))+'</span>'}
   };reader.readAsText(file);
 }
-function setTabDot(p,c){const t=document.querySelector('.out-tab[data-pane="'+p+'"]');if(t)t.querySelector('.t-dot').className='t-dot '+c}
 
-// Optimizers
+// Optimizers (same as before)
 function optimizeGA(raw){
   const p={property:{name:raw.account_summary?.property_name||'',account:raw.account_summary?.account_name||raw.account_summary?.name||'',url:raw.account_summary?.streams?.[0]?.url||'',currency:raw.audit_report?.property_overview?.currency||'',attribution:raw.audit_report?.property_overview?.attribution_model||'',period:raw.account_summary?.time_period||''},scores:{overall:raw.audit_report?.score_summary?.[0]?.value||'0',status:raw.audit_report?.status||'Unknown',passed:raw.audit_report?.score_summary?.[1]?.value||'0',recoverable_pts:raw.audit_report?.recoverable_pts||0},ads_detected:false,integrations:[],categories:[],checkpoints:{}};
   (raw.checkpoints?.integrations?.insights||[]).forEach(i=>{p.integrations.push({name:i.name,linked:!!i.is_linked});if(i.name==='Google Ads'&&i.is_linked)p.ads_detected=true});
@@ -218,270 +205,190 @@ function optimizeComp(raw){
   p.trackers_outside_gtm=(comp.data?.missing||[]).map(m=>m.details||m.name||'');return p;
 }
 
-// System prompts — personalized, no fluff, business-context-aware
-const PROMPT_GA=`You write a personalized TOP ISSUES summary for a GA4 audit on GAfix.ai.
+// Combined prompt — one call, all data, single summary
+const SYSTEM_PROMPT=`You write ONE combined audit summary for GAfix.ai covering GA4 + GTM + Compliance in a single narrative.
 
-PERSONALIZE — this is the most important rule:
-- Infer the business type AND their specific conversion goal from the data:
-  - IIDE (iide.co) = digital marketing institute → goal is course enrollments and student inquiries
-  - CallBack HVAC = home services → goal is booked service calls and quote requests
-  - Mokkup.ai = SaaS tool → goal is trial signups and paid conversions
-- Open with: "For a [specific business type] like [Name] where [their specific goal] drives revenue..."
-- Every issue must reference their goal: "your enrollment form submissions" not "your conversions"
-- If Google Ads is linked: "your Google Ads is spending money optimizing on [specific problem]"
-- Cite real numbers: "13% of events", "11 of 19 key events never fired", "25.6% of sessions"
+PERSONALIZE:
+- Infer the business type from URL, property name, key events, integrations
+- Name the business and its specific conversion goal
+- Every issue must connect to THEIR business impact
+- If ad spend is provided, calculate estimated wasted spend
 
-SCORING: <40 broken, 40-59 partially works, 60-84 gaps costing money, 85+ almost clean.
+COMPETITIVE BENCHMARKING:
+- Name 2-3 real competitor or similar websites in the same industry/niche
+- For each, give a realistic benchmark score (what a well-configured setup in that industry typically looks like)
+- Frame as: "Sites like [competitor1] and [competitor2] in your space typically score 75-85 on GA4 tracking. Your setup at [score] means..."
+- Use real, recognizable brand names that the business owner would know as competitors or peers
 
-LENGTH: Each text field MAX 80 words. Pick only the top 2-3 issues. Be punchy.
+ISSUES:
+- List the top 5-6 issues across GA4, GTM, and compliance combined
+- For each: a severity (HIGH or FIX), a short title, a 1-2 sentence plain-language description, and which audit it came from (ga/gtm/comp)
+- Priority: revenue-impacting > attribution > measurement > container hygiene > compliance
+- Plain English, no jargon
 
-Return ONLY a single-line JSON object (no newlines inside values, no markdown fences):
-{"headline":"1-2 sentences. Business-specific.","subtext":"N of X areas need attention. Fixing these 3 first closes most of the gap","sections":[{"subhead":"What's breaking","text":"2-3 short sentences. Top issues with numbers and business impact."},{"subhead":"Fix these first","text":"Top 3 checkpoints, one line each with business-specific why."}],"chips":["top 3 failing checkpoints"],"actions":[{"checkpoint":"name","why":"1 sentence","source":"ga"},{"checkpoint":"name","why":"1 sentence","source":"ga"},{"checkpoint":"name","why":"1 sentence","source":"ga"}],"business_type":"ecommerce|lead-gen|saas|content|other"}`;
+LENGTH: headline max 2 sentences. Each issue description max 2 sentences. Benchmark section max 3 sentences. Keep total output under 900 tokens.
 
-const PROMPT_GTM=`You write a personalized TOP ISSUES summary for a GTM container audit on GAfix.ai.
-
-PERSONALIZE: Infer the business type from the data. Frame every issue as what it costs THIS business's specific conversion goal — not generic "your tags have issues." Name the business.
-
-GTM priority: Container Hygiene > Events & Parameters > Attribution > Tag Firing > E-commerce.
-When 2+ fail in same category: name top 2 + "and N other issues" + consequence for their business.
-
-LENGTH: Each text field MAX 60 words. Be punchy.
-
-Return ONLY a single-line JSON object (no newlines inside values, no markdown fences):
-{"headline":"1-2 sentences about this business's GTM problems.","subtext":"N of 5 areas need attention.","sections":[{"subhead":"What's breaking","text":"2-3 short sentences."},{"subhead":"Fix these first","text":"Top 2-3 checkpoints, one line each."}],"chips":["top 3 failing"],"actions":[{"checkpoint":"name","why":"1 sentence","source":"gtm"},{"checkpoint":"name","why":"1 sentence","source":"gtm"}]}`;
-
-const PROMPT_COMP=`You write a personalized TOP ISSUES summary for a Compliance audit on GAfix.ai.
-
-PERSONALIZE: Name the business and domain. Be specific about which law applies and what the violation is. Frame as legal + data quality risk for THIS business.
-
-LENGTH: Each text field MAX 60 words.
-
-Return ONLY a single-line JSON object (no newlines inside values, no markdown fences):
-{"headline":"1-2 sentences. [domain] specific consent problem and consequence.","subtext":"N domain(s) checked, N issues","sections":[{"subhead":"Consent gaps","text":"Per domain: banner? Rejection works? Which law?"},{"subhead":"Fix these first","text":"Top actions, one line each."}],"chips":["specific problems like 'No banner · domain.com'"],"actions":[{"checkpoint":"name","why":"1 sentence","source":"comp"}]}`;
+Return ONLY a single-line JSON (no newlines inside values, no markdown fences):
+{"headline":"Personalized 1-2 sentence summary with business context and biggest risk. Include ad waste estimate if spend provided.","benchmarks":[{"name":"competitor name","score":75,"note":"short context"},{"name":"competitor name","score":82,"note":"short context"}],"your_score":53,"issues":[{"severity":"HIGH","title":"short title","desc":"1-2 sentence plain description","source":"ga"},{"severity":"FIX","title":"short title","desc":"description","source":"gtm"}],"plan_trigger":"tracking_broken|ads_leaking|compliance_risk|container_messy|mostly_clean"}`;
 
 // Generate
-document.getElementById('genBtn').addEventListener('click', generateAll);
+document.getElementById('genBtn').addEventListener('click', generate);
 
-async function generateAll(){
-  const btn=document.getElementById('genBtn');btn.disabled=true;btn.textContent='Generating…';
+async function generate(){
+  const btn=document.getElementById('genBtn'),dot=document.getElementById('outDot'),status=document.getElementById('outStatus'),body=document.getElementById('outBody');
+  btn.disabled=true;btn.textContent='Generating…';
+  dot.className='out-dot live';status.textContent='Analyzing all audit data…';
+  body.innerHTML='<div class="placeholder">Generating combined summary…</div>';
+
   const url=document.getElementById('urlInput').value.trim();
-  const jobs=[];
-  if(state.ga.optimized)jobs.push({type:'ga',payload:state.ga.optimized,prompt:PROMPT_GA});
-  if(state.gtm.optimized)jobs.push({type:'gtm',payload:state.gtm.optimized,prompt:PROMPT_GTM});
-  if(state.comp.optimized)jobs.push({type:'comp',payload:state.comp.optimized,prompt:PROMPT_COMP});
+  const adSpend=document.getElementById('adSpend')?.value;
 
-  setTabDot('actions','waiting');
-  const promises=jobs.map(j=>runOne(j.type,j.payload,j.prompt,url));
-  await Promise.allSettled(promises);
+  // Build one combined payload
+  let dataBlock='';
+  if(state.ga.optimized) dataBlock+='=== GA4 AUDIT ===\n'+(typeof state.ga.optimized==='string'?state.ga.optimized:JSON.stringify(state.ga.optimized))+'\n\n';
+  if(state.gtm.optimized) dataBlock+='=== GTM AUDIT ===\n'+(typeof state.gtm.optimized==='string'?state.gtm.optimized:JSON.stringify(state.gtm.optimized))+'\n\n';
+  if(state.comp.optimized) dataBlock+='=== COMPLIANCE AUDIT ===\n'+(typeof state.comp.optimized==='string'?state.comp.optimized:JSON.stringify(state.comp.optimized))+'\n\n';
 
-  // Build Action Required tab from all results
-  buildActionsTab();
-  showTotals();
-  btn.disabled=false;btn.textContent='Regenerate All';
-  switchTab('actions');
-}
+  let userMsg='Generate the combined summary.\n\nWebsite: '+(url||'not provided')+'\n';
+  if(adSpend&&parseFloat(adSpend)>0) userMsg+='Monthly ad spend: $'+parseFloat(adSpend).toLocaleString()+'\n';
+  userMsg+='\n'+dataBlock;
 
-async function runOne(type,payload,systemPrompt,url){
-  const pane=document.getElementById('pane-'+type);
-  setTabDot(type,'running');
-  pane.innerHTML='<div class="placeholder streaming">Analyzing…</div>';
-
-  const isRaw=typeof payload==='string';
-  const siteUrl=url||(isRaw?'':(payload.property?.url||''));
-  const dataBlock=isRaw?payload:JSON.stringify(payload);
-  const userMsg='Generate the summary.\n\nWebsite: '+(siteUrl||'not provided')+'\n\nAudit data:\n'+dataBlock;
   const t0=performance.now();
 
   try{
-    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2048,system:systemPrompt,messages:[{role:"user",content:userMsg}]})});
+    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:2048,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}]})});
     const data=await resp.json();const elapsed=((performance.now()-t0)/1000).toFixed(1);
     if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
 
     const rawText=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
-    const inTok=data.usage?.input_tokens||0, outTok=data.usage?.output_tokens||0;
-    const sysEst=Math.round(systemPrompt.length/4);
+    const inTok=data.usage?.input_tokens||0,outTok=data.usage?.output_tokens||0;
     const cost=(inTok*2+outTok*10)/1e6;
-    const cachedCost=((inTok-sysEst)*2+sysEst*0.20+outTok*10)/1e6;
 
-    state.results[type]={inTok,outTok,cost,cachedCost,elapsed,parsed:null};
-
+    // Parse JSON
     let result;
     try{
       let cleaned=rawText.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-      const jsonStart=cleaned.indexOf('{');
-      const jsonEnd=cleaned.lastIndexOf('}');
-      if(jsonStart!==-1&&jsonEnd>jsonStart) cleaned=cleaned.slice(jsonStart,jsonEnd+1);
-
-      // THE FIX: collapse all newlines/returns to spaces before parsing.
-      // JSON.parse handles single-line JSON identically to pretty-printed.
-      // This kills the #1 LLM JSON failure: literal newlines inside string values.
-      cleaned=cleaned.replace(/[\r\n]+/g,' ');
-      cleaned=cleaned.replace(/,\s*([}\]])/g,'$1'); // trailing commas
-
-      try{ result=JSON.parse(cleaned) }
-      catch(e1){
-        // Truncation repair: close open brackets
+      const s=cleaned.indexOf('{'),e=cleaned.lastIndexOf('}');
+      if(s!==-1&&e>s) cleaned=cleaned.slice(s,e+1);
+      cleaned=cleaned.replace(/[\r\n]+/g,' ').replace(/,\s*([}\]])/g,'$1');
+      try{result=JSON.parse(cleaned)}catch(e1){
         let repair=cleaned.replace(/,\s*"[^"]*$/,'').replace(/,\s*$/,'');
         const ob=(repair.match(/{/g)||[]).length-(repair.match(/}/g)||[]).length;
         const oa=(repair.match(/\[/g)||[]).length-(repair.match(/\]/g)||[]).length;
-        for(let i=0;i<oa;i++) repair+=']';
-        for(let i=0;i<ob;i++) repair+='}';
+        for(let i=0;i<oa;i++)repair+=']';for(let i=0;i<ob;i++)repair+='}';
         result=JSON.parse(repair);
       }
-      state.results[type].parsed=result;
     }catch(e){
-      console.error('JSON parse failed for',type,':',e.message);
-      pane.innerHTML='<div class="sum-block"><div class="sum-text">'+rawText.split('\n\n').map(p=>esc(p)).join('</div><div class="sum-text">')+'</div></div>';
-      setTabDot(type,'done');return;
+      body.innerHTML='<div class="sum-text">'+rawText.split('\n\n').map(p=>'<p>'+esc(p)+'</p>').join('')+'</div>';
+      dot.className='out-dot done';status.textContent='Done';btn.disabled=false;btn.textContent='Regenerate';return;
     }
 
-    renderSummary(pane,result,{inTok,outTok,cost,cachedCost,elapsed},type);
-    setTabDot(type,'done');
-  }catch(err){pane.innerHTML='<div class="err-box">'+esc(err.message)+'</div>';setTabDot(type,'err');state.results[type]=null}
+    // Render
+    renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed},adSpend);
+    dot.className='out-dot done';status.textContent='Summary generated';
+  }catch(err){
+    body.innerHTML='<div class="err-box">'+esc(err.message)+'</div>';
+    dot.className='out-dot';status.textContent='Error';
+  }
+  btn.disabled=false;btn.textContent='Regenerate';
 }
 
-function renderSummary(pane,r,stats,type){
-  let h='<div class="sum-block">';
-  h+='<div class="sum-label"><span class="tri">⚠</span> Top issues</div>';
+function renderCombinedSummary(container,r,stats,adSpend){
+  let h='';
+
+  // Headline
   h+='<div class="sum-headline">'+esc(r.headline||'')+'</div>';
-  h+='<div class="sum-sub">'+esc(r.subtext||'')+'</div>';
-  if(r.sections?.length){
-    r.sections.forEach(s=>{
-      h+='<div class="sum-subhead">'+esc(s.subhead||'')+'</div>';
-      h+='<div class="sum-text">'+esc(s.text||'')+'</div>';
+
+  // Benchmarks
+  if(r.benchmarks?.length){
+    h+='<div class="sum-section"><div class="sum-label bench"><i style="font-style:normal">📊</i> How you compare</div>';
+    h+='<div class="bench-list">';
+    // Your score first
+    const yourScore=parseInt(r.your_score)||0;
+    h+=benchBar('Your site',yourScore);
+    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0,b.note)});
+    h+='</div></div>';
+  }
+
+  // Issues
+  if(r.issues?.length){
+    h+='<div class="sum-section"><div class="sum-label warn"><i style="font-style:normal">⚠</i> What needs work</div>';
+    h+='<div class="issue-grid">';
+    r.issues.forEach(iss=>{
+      const sev=iss.severity==='HIGH'?'high':'fix';
+      const src=iss.source||'ga';
+      const srcLabel=src==='ga'?'GA4':src==='gtm'?'GTM':'Compliance';
+      h+='<div class="issue-card"><div class="ic-badge '+sev+'">'+esc(iss.severity||'FIX')+'</div><div class="ic-title">'+esc(iss.title||'')+'</div><div class="ic-desc">'+esc(iss.desc||'')+'</div><span class="ic-source '+src+'">'+srcLabel+'</span></div>';
     });
+    h+='</div></div>';
   }
-  if(r.chips?.length){
-    h+='<div class="sum-chips">';
-    r.chips.forEach(c=>h+='<span class="sc">'+esc(c)+' →</span>');
-    h+='</div>';
-  }
-  h+='</div>';
+
+  // Plan suggestion — based on plan_trigger, not score
+  h+=renderPlanBlock(r.plan_trigger,r.issues||[],adSpend);
+
+  // Stats
   h+='<div class="s-meta">';
   h+='<div>In: <span>'+stats.inTok.toLocaleString()+'</span></div>';
   h+='<div>Out: <span>'+stats.outTok.toLocaleString()+'</span></div>';
   h+='<div>Cost: <span>$'+stats.cost.toFixed(4)+'</span></div>';
-  h+='<div>Cached: <span>$'+stats.cachedCost.toFixed(4)+'</span></div>';
   h+='<div>Time: <span>'+stats.elapsed+'s</span></div>';
   h+='</div>';
-  pane.innerHTML=h;
+
+  container.innerHTML=h;
 }
 
-function buildActionsTab(){
-  const pane=document.getElementById('pane-actions');
-  const allActions=[];
-
-  ['ga','gtm','comp'].forEach(type=>{
-    const r=state.results[type]?.parsed;
-    if(r?.actions)r.actions.forEach(a=>allActions.push(a));
-  });
-
-  if(!allActions.length){
-    pane.innerHTML='<div class="placeholder">No actions generated yet.</div>';
-    setTabDot('actions','skip');return;
-  }
-
-  // Take top 5
-  const top5=allActions.slice(0,5);
-  let h='<div style="font-size:13px;font-weight:700;margin-bottom:12px;letter-spacing:-.1px">Top '+top5.length+' fixes across all audits</div>';
-  top5.forEach((a,i)=>{
-    const srcClass=a.source||'ga';
-    const srcLabel=srcClass==='ga'?'GA4':srcClass==='gtm'?'GTM':'Compliance';
-    h+='<div class="action-item">';
-    h+='<div class="action-num">'+(i+1)+'</div>';
-    h+='<div class="action-body">';
-    h+='<div class="action-title">'+esc(a.checkpoint||'')+'</div>';
-    h+='<div class="action-desc">'+esc(a.why||'')+'</div>';
-    h+='<span class="action-source '+srcClass+'">'+srcLabel+'</span>';
-    h+='</div></div>';
-  });
-
-  // Plan recommendation
-  h+=renderPlanBlock();
-
-  // Total cost summary
-  let tIn=0,tOut=0,tCost=0,tCache=0;
-  for(const r of Object.values(state.results)){if(!r)continue;tIn+=r.inTok||0;tOut+=r.outTok||0;tCost+=r.cost||0;tCache+=r.cachedCost||0}
-  h+='<div class="s-meta" style="margin-top:14px">';
-  h+='<div>Total in: <span>'+tIn.toLocaleString()+'</span></div>';
-  h+='<div>Total out: <span>'+tOut.toLocaleString()+'</span></div>';
-  h+='<div>Total cost: <span>$'+tCost.toFixed(4)+'</span></div>';
-  h+='<div>With caching: <span>$'+tCache.toFixed(4)+'</span></div>';
-  h+='</div>';
-
-  pane.innerHTML=h;
-  setTabDot('actions','done');
-}
-
-function showTotals(){
-  let tIn=0,tOut=0,tCost=0,tCache=0;
-  for(const r of Object.values(state.results)){if(!r)continue;tIn+=r.inTok||0;tOut+=r.outTok||0;tCost+=r.cost||0;tCache+=r.cachedCost||0}
-  if(!tIn)return;
-  document.getElementById('tbTok').textContent=(tIn+tOut).toLocaleString()+' ('+tIn.toLocaleString()+' in + '+tOut.toLocaleString()+' out)';
-  document.getElementById('tbCost').textContent='$'+tCost.toFixed(4);
-  document.getElementById('tbCache').textContent='$'+tCache.toFixed(4);
-  document.getElementById('totalBar').classList.add('show');
-}
-
-function renderPlanBlock(){
-  const gaScore=parseInt(state.ga.optimized?.scores?.overall||'0');
-  const issueCount=(state.results.ga?.parsed?.chips?.length||0)+(state.results.gtm?.parsed?.chips?.length||0)+(state.results.comp?.parsed?.chips?.length||0);
-  const hasAds=state.ga.optimized?.ads_detected||false;
-
-  // Pick recommendation based on severity
-  let rec='starter',reason='';
-  if(issueCount>=5||gaScore<50){
-    rec='growth';
-    reason='With <strong>'+issueCount+' issues</strong> and a score of <strong>'+gaScore+'/100</strong>, you need ongoing monitoring and expert fixes — not just a one-time scan.';
-  }else if(issueCount>=3||gaScore<75){
-    rec='starter';
-    reason='Your audit found <strong>'+issueCount+' issues</strong> that need targeted fixes. A plan with expert support gets these resolved faster.';
-  }else{
-    rec='starter';
-    reason='Your setup is mostly clean. Regular re-runs catch drift before it costs you data.';
-  }
-
-  let h='<div style="margin-top:16px;padding:16px;border-radius:10px;background:var(--surface);border:1px solid var(--border)">';
-  h+='<div style="font-size:14px;font-weight:700;margin-bottom:3px">Get these issues fixed</div>';
-  h+='<div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.55">'+reason+'</div>';
-
-  // Plan cards grid
-  h+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">';
-
-  const plans=[
-    {id:'starter',name:'Starter',price:'$99',per:'/mo',annual:'$79/mo billed yearly',features:'44-checkpoint audit · 2 expert fixes/mo · Monthly re-runs · Excel export · Setup call',url:'https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D7%26cycle%3Dmonthly',tag:''},
-    {id:'growth',name:'Growth',price:'$249',per:'/mo',annual:'$199/mo billed yearly',features:'Everything in Starter + Monitoring between runs · Google Ads destinations · 5 expert fixes/mo · Priority support',url:'https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D8%26cycle%3Dmonthly',tag:'Popular'},
-    {id:'pro',name:'Pro',price:'$399',per:'/mo',annual:'$319/mo billed yearly',features:'Everything in Growth + Weekly re-runs & monitoring · Shopify, WooCommerce · 10 fixes/mo · Fast-track support',url:'https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D9%26cycle%3Dmonthly',tag:''},
-  ];
-
-  plans.forEach(p=>{
-    const active=p.id===rec;
-    h+='<div style="padding:12px;border-radius:8px;border:'+(active?'2px solid var(--accent)':'1px solid var(--border)')+';background:var(--raised);position:relative">';
-    if(active) h+='<div style="position:absolute;top:-9px;right:8px;font-size:9px;font-weight:700;background:var(--accent);color:#fff;padding:2px 8px;border-radius:4px">Recommended</div>';
-    else if(p.tag) h+='<div style="position:absolute;top:-9px;right:8px;font-size:9px;font-weight:700;background:var(--amber);color:#000;padding:2px 8px;border-radius:4px">'+p.tag+'</div>';
-    h+='<div style="font-size:12px;font-weight:700">'+p.name+'</div>';
-    h+='<div style="font-size:18px;font-weight:700;color:var(--accent);margin:2px 0">'+p.price+'<span style="font-size:11px;font-weight:400;color:var(--muted)">'+p.per+'</span></div>';
-    h+='<div style="font-size:10px;color:var(--accent);margin-bottom:6px">'+p.annual+'</div>';
-    h+='<div style="font-size:10px;color:var(--muted);line-height:1.5;margin-bottom:8px">'+p.features+'</div>';
-    h+='<a href="'+p.url+'" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:11px;font-weight:600;padding:7px;border-radius:6px;text-decoration:none;color:#fff;background:'+(active?'var(--accent)':'var(--muted)')+'">Get '+p.name+'</a>';
-    h+='</div>';
-  });
-
-  h+='</div>'; // grid
-
-  // Advanced + compare link
-  h+='<div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">';
-  h+='<span style="font-size:10px;color:var(--muted)">Managing multiple properties? <a href="https://app.gafix.ai/sign-up?redirect=%2Fproject-details%3Fflow%3Dadvanced" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:none;font-weight:600">Get a custom Advanced plan →</a></span>';
-  h+='<a href="https://www.gafix.ai/pricing" target="_blank" rel="noopener" style="font-size:10px;color:var(--accent);text-decoration:none">Compare all plans & add-ons →</a>';
-  h+='</div>';
-
-  h+='</div>';
+function benchBar(name,score,note){
+  const cls=score>=75?'good':score>=50?'mid':'bad';
+  let h='<div class="bench-item"><div class="b-name">'+esc(name)+'</div><div class="b-bar"><div class="b-fill '+cls+'" style="width:'+score+'%"></div></div><div class="b-score">'+score+'</div></div>';
   return h;
 }
 
-function switchTab(p){
-  document.querySelectorAll('.out-tab').forEach(t=>t.classList.toggle('active',t.dataset.pane===p));
-  document.querySelectorAll('.out-pane').forEach(el=>el.classList.toggle('active',el.id==='pane-'+p));
+function renderPlanBlock(trigger,issues,adSpend){
+  // Smart plan logic — based on WHAT's broken, not just score
+  const hasAdIssues=issues.some(i=>/(utm|attribution|referral|ads|campaign|source)/i.test(i.title+' '+i.desc));
+  const hasCompliance=issues.some(i=>i.source==='comp');
+  const hasContainerMess=issues.some(i=>i.source==='gtm');
+  const highCount=issues.filter(i=>i.severity==='HIGH').length;
+
+  let plan,reason,price,annual,features,url;
+
+  if(trigger==='ads_leaking'||hasAdIssues||(adSpend&&parseFloat(adSpend)>1000)){
+    plan='Growth';price='$249';annual='$199/mo billed yearly';
+    url='https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D8%26cycle%3Dmonthly';
+    features='Everything in Starter + monitoring between runs · Google Ads destinations · 5 expert fixes/mo · Priority support';
+    reason='Your audit shows <strong>ad attribution and tracking issues</strong>. With active ad spend, each day these stay unfixed means budget flowing to campaigns that can\'t prove their ROI. Growth includes Google Ads destination tracking and 5 expert fixes/month.';
+  }else if(trigger==='compliance_risk'||hasCompliance){
+    plan='Growth';price='$249';annual='$199/mo billed yearly';
+    url='https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D8%26cycle%3Dmonthly';
+    features='Everything in Starter + monitoring between runs · Google Ads destinations · 5 expert fixes/mo · Priority support';
+    reason='<strong>Consent and compliance gaps</strong> carry legal exposure and pollute your analytics data. Growth includes monitoring between audit runs so new violations get caught immediately, not at the next monthly scan.';
+  }else if(trigger==='tracking_broken'||highCount>=3){
+    plan='Starter';price='$99';annual='$79/mo billed yearly';
+    url='https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D7%26cycle%3Dmonthly';
+    features='44-checkpoint audit · 2 expert fixes/mo · Monthly re-runs · Excel export · Setup call';
+    reason='Your tracking has <strong>foundational issues</strong> that need expert attention. Starter includes a setup call to prioritize what to fix first, plus 2 expert fixes per month to work through the list.';
+  }else if(trigger==='container_messy'||hasContainerMess){
+    plan='Starter';price='$99';annual='$79/mo billed yearly';
+    url='https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D7%26cycle%3Dmonthly';
+    features='44-checkpoint audit · 2 expert fixes/mo · Monthly re-runs · Excel export · Setup call';
+    reason='Your <strong>GTM container needs cleanup</strong> — paused tags, duplicate triggers, and missing configs add noise to your data. Starter includes the full 44-checkpoint audit and 2 expert fixes/month to clean it up.';
+  }else{
+    plan='Starter';price='$99';annual='$79/mo billed yearly';
+    url='https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D7%26cycle%3Dmonthly';
+    features='44-checkpoint audit · 2 expert fixes/mo · Monthly re-runs · Excel export · Setup call';
+    reason='Your setup is <strong>mostly clean</strong> — regular re-runs catch drift before it costs you data. Starter includes monthly audits and expert fixes when something shifts.';
+  }
+
+  let h='<div class="plan-block">';
+  h+='<div class="sum-label plan"><i style="font-style:normal">🎯</i> Recommended plan</div>';
+  h+='<div class="pb-reason">'+reason+'</div>';
+  h+='<div class="pb-name">'+plan+'</div>';
+  h+='<div class="pb-price">'+price+'<span>/mo</span></div>';
+  h+='<div class="pb-features">'+features+'</div>';
+  h+='<a class="pb-cta" href="'+url+'" target="_blank" rel="noopener">Get '+plan+' →</a>';
+  h+='<div class="pb-alt">'+annual+' · <a href="https://www.gafix.ai/pricing" target="_blank" rel="noopener">Compare all plans →</a></div>';
+  h+='</div>';
+  return h;
 }
 
 function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML}
