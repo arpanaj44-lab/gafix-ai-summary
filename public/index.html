@@ -12,10 +12,7 @@
 *{box-sizing:border-box;margin:0}html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
 body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100%}
 .shell{max-width:860px;margin:0 auto;padding:24px 20px 60px}
-.hdr{display:flex;align-items:center;gap:10px;margin-bottom:20px}
 .hdr-icon{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff}
-.hdr h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
-.hdr .tag{font-size:10px;font-weight:600;letter-spacing:.4px;background:var(--accent-dim);color:var(--accent);padding:2px 8px;border-radius:12px;margin-left:auto}
 .url-row{margin-bottom:14px}
 .url-row label{display:block;font-size:12px;font-weight:500;margin-bottom:4px;color:var(--muted)}
 .url-row input{width:100%;font-family:var(--font);font-size:13px;background:var(--raised);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:7px;outline:none}
@@ -98,18 +95,32 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 .s-meta{margin-top:14px;padding-top:10px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:12px;font-size:10px;color:var(--muted)}
 .s-meta span{font-family:var(--mono);color:var(--text);font-weight:500}
 .err-box{background:var(--red-dim);border:1px solid rgba(239,100,97,.25);border-radius:7px;padding:12px;color:var(--red);font-size:12px}
+/* Top bar */
+.top-bar{display:flex;align-items:center;gap:8px;margin-bottom:20px}
+.top-bar h1{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.top-bar .tag{font-size:10px;font-weight:600;letter-spacing:.4px;background:var(--accent-dim);color:var(--accent);padding:2px 8px;border-radius:12px}
+.top-bar .spacer{flex:1}
+.top-bar .icon-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;color:var(--muted);font-family:var(--font);transition:border-color .15s,color .15s}
+.top-bar .icon-btn:hover{border-color:var(--accent);color:var(--text)}
 </style>
 </head>
 <body>
 <div class="shell">
-  <div class="hdr"><div class="hdr-icon">G</div><h1>GAfix AI Summary</h1><span class="tag">POC v5</span></div>
+  <div class="top-bar">
+    <div class="hdr-icon" style="width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:grid;place-items:center;font-weight:700;font-size:12px;color:#fff">G</div>
+    <h1>GAfix AI Summary</h1>
+    <span class="tag">POC v5</span>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle dark/light mode">☀️</button>
+    <button class="icon-btn" id="clearBtn" onclick="clearAll()" title="Clear all" style="display:none">Clear all</button>
+  </div>
   <div class="url-row">
     <label>Website URL</label>
     <input type="text" id="urlInput" placeholder="https://www.example.com">
   </div>
-  <div class="upload-grid">
+  <div class="upload-grid" style="grid-template-columns:1fr 1fr">
     <div class="upload-card">
-      <div class="uc-label"><div class="uc-dot ga"></div>GA4 Audit<span class="uc-badge required">Required</span></div>
+      <div class="uc-label"><div class="uc-dot ga"></div>GA4 + Compliance Audit<span class="uc-badge required">Required</span></div>
       <div class="drop-zone" id="dz-ga"><input type="file" accept=".json,.md,.txt,.text,.markdown" data-type="ga"><div class="dz-text">Drop <strong>JSON / MD / TXT</strong></div></div>
       <div class="uc-meta" id="meta-ga"></div>
     </div>
@@ -117,11 +128,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
       <div class="uc-label"><div class="uc-dot gtm"></div>GTM Audit<span class="uc-badge optional">Optional</span></div>
       <div class="drop-zone" id="dz-gtm"><input type="file" accept=".json,.md,.txt,.text,.markdown" data-type="gtm"><div class="dz-text">Drop <strong>JSON / MD / TXT</strong></div></div>
       <div class="uc-meta" id="meta-gtm"></div>
-    </div>
-    <div class="upload-card">
-      <div class="uc-label"><div class="uc-dot comp"></div>Compliance<span class="uc-badge optional">Optional</span></div>
-      <div class="drop-zone" id="dz-comp"><input type="file" accept=".json,.md,.txt,.text,.markdown" data-type="comp"><div class="dz-text">Drop <strong>JSON / MD / TXT</strong></div></div>
-      <div class="uc-meta" id="meta-comp"></div>
     </div>
   </div>
   <div class="spend-row" id="spendRow">
@@ -139,7 +145,35 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 
 <script>
 const PROXY_ENDPOINT="/api/summarize";
-const state={ga:{raw:null,optimized:null},gtm:{raw:null,optimized:null},comp:{raw:null,optimized:null}};
+const USD_TO_INR=96;
+const state={ga:{raw:null,optimized:null},gtm:{raw:null,optimized:null}};
+
+// Theme toggle
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  const next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  document.getElementById('themeBtn').textContent=next==='dark'?'☀️':'🌙';
+  try{localStorage.setItem('gafix-theme',next)}catch(e){}
+}
+(function(){try{const t=localStorage.getItem('gafix-theme');if(t){document.documentElement.setAttribute('data-theme',t);document.getElementById('themeBtn').textContent=t==='dark'?'☀️':'🌙'}}catch(e){}})();
+
+// Clear all
+function clearAll(){
+  state.ga={raw:null,optimized:null};state.gtm={raw:null,optimized:null};
+  document.getElementById('urlInput').value='';
+  if(document.getElementById('adSpend'))document.getElementById('adSpend').value='';
+  document.getElementById('spendRow').classList.remove('show');
+  document.getElementById('genBtn').disabled=true;document.getElementById('genBtn').textContent='Upload GA4 JSON to start';
+  document.getElementById('outBody').innerHTML='<div class="placeholder">Upload your audit data and hit generate. One combined AI summary across GA4, GTM, and compliance — with competitive benchmarking and a plan recommendation based on what\'s actually broken.</div>';
+  document.getElementById('outDot').className='out-dot';document.getElementById('outStatus').textContent='Waiting for input';
+  document.getElementById('clearBtn').style.display='none';
+  ['ga','gtm'].forEach(t=>{
+    const dz=document.getElementById('dz-'+t);dz.classList.remove('loaded');
+    dz.querySelector('.dz-text').innerHTML='Drop <strong>JSON / MD / TXT</strong>';
+    document.getElementById('meta-'+t).innerHTML='';
+  });
+}
 
 // File handling
 document.querySelectorAll('.drop-zone').forEach(dz=>{
@@ -177,6 +211,7 @@ function loadFile(type,file){
         document.getElementById('genBtn').disabled=false;
         document.getElementById('genBtn').textContent='Generate AI Summary';
         document.getElementById('spendRow').classList.add('show');
+        document.getElementById('clearBtn').style.display='';
       }
     }catch(err){dz.querySelector('.dz-text').innerHTML='<span style="color:var(--red)">Error: '+esc(err.message.slice(0,60))+'</span>'}
   };reader.readAsText(file);
@@ -243,11 +278,10 @@ async function generate(){
   const url=document.getElementById('urlInput').value.trim();
   const adSpend=document.getElementById('adSpend')?.value;
 
-  // Build one combined payload
+  // Build one combined payload (GA4 JSON includes compliance data)
   let dataBlock='';
-  if(state.ga.optimized) dataBlock+='=== GA4 AUDIT ===\n'+(typeof state.ga.optimized==='string'?state.ga.optimized:JSON.stringify(state.ga.optimized))+'\n\n';
+  if(state.ga.optimized) dataBlock+='=== GA4 + COMPLIANCE AUDIT ===\n'+(typeof state.ga.optimized==='string'?state.ga.optimized:JSON.stringify(state.ga.optimized))+'\n\n';
   if(state.gtm.optimized) dataBlock+='=== GTM AUDIT ===\n'+(typeof state.gtm.optimized==='string'?state.gtm.optimized:JSON.stringify(state.gtm.optimized))+'\n\n';
-  if(state.comp.optimized) dataBlock+='=== COMPLIANCE AUDIT ===\n'+(typeof state.comp.optimized==='string'?state.comp.optimized:JSON.stringify(state.comp.optimized))+'\n\n';
 
   let userMsg='Generate the combined summary.\n\nWebsite: '+(url||'not provided')+'\n';
   if(adSpend&&parseFloat(adSpend)>0) userMsg+='Monthly ad spend: $'+parseFloat(adSpend).toLocaleString()+'\n';
@@ -327,10 +361,10 @@ function renderCombinedSummary(container,r,stats,adSpend){
   h+=renderPlanBlock(r.plan_trigger,r.issues||[],adSpend);
 
   // Stats
+  const inr=(stats.cost*USD_TO_INR).toFixed(2);
   h+='<div class="s-meta">';
-  h+='<div>In: <span>'+stats.inTok.toLocaleString()+'</span></div>';
-  h+='<div>Out: <span>'+stats.outTok.toLocaleString()+'</span></div>';
-  h+='<div>Cost: <span>$'+stats.cost.toFixed(4)+'</span></div>';
+  h+='<div>Tokens: <span>'+stats.inTok.toLocaleString()+' in + '+stats.outTok.toLocaleString()+' out</span></div>';
+  h+='<div>Cost: <span>$'+stats.cost.toFixed(4)+' (₹'+inr+')</span></div>';
   h+='<div>Time: <span>'+stats.elapsed+'s</span></div>';
   h+='</div>';
 
