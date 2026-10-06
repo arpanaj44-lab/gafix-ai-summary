@@ -33,13 +33,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
 .drop-zone.loaded{border-style:solid;border-color:var(--green)}.drop-zone.loaded .dz-text{color:var(--green);font-size:10px}
 .uc-meta{font-size:10px;color:var(--muted);margin-top:4px}.uc-meta span{font-family:var(--mono);color:var(--text)}
 /* Spend row */
-.spend-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:none;align-items:center;gap:12px;flex-wrap:wrap}
-.spend-row.show{display:flex}
-.spend-row label{font-size:11px;color:var(--muted);white-space:nowrap}
-.spend-input{display:flex;align-items:center;background:var(--raised);border:1px solid var(--border);border-radius:6px;overflow:hidden}
-.spend-prefix{padding:0 0 0 8px;font-size:12px;color:var(--muted);font-weight:600}
-.spend-input input{width:100px;font-family:var(--font);font-size:12px;background:transparent;border:none;color:var(--text);padding:6px 8px 6px 4px;outline:none}
-.spend-input input::placeholder{color:var(--muted)}
 /* Generate */
 .gen-row{text-align:center;margin:16px 0}
 .gen-btn{font-family:var(--font);font-size:13px;font-weight:600;background:linear-gradient(135deg,var(--accent),#8b5cf6);color:#fff;border:none;padding:11px 32px;border-radius:8px;cursor:pointer;transition:opacity .15s}
@@ -130,10 +123,6 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:
       <div class="uc-meta" id="meta-gtm"></div>
     </div>
   </div>
-  <div class="spend-row" id="spendRow">
-    <label>Monthly ad spend (optional, for waste estimate)</label>
-    <div class="spend-input"><span class="spend-prefix">$</span><input type="number" id="adSpend" placeholder="e.g. 5000" min="0"></div>
-  </div>
   <div class="gen-row"><button class="gen-btn" id="genBtn" disabled>Upload GA4 JSON to start</button></div>
   <div class="out-card">
     <div class="out-bar"><div class="out-dot" id="outDot"></div><span id="outStatus">Waiting for input</span></div>
@@ -162,8 +151,7 @@ function toggleTheme(){
 function clearAll(){
   state.ga={raw:null,optimized:null};state.gtm={raw:null,optimized:null};
   document.getElementById('urlInput').value='';
-  if(document.getElementById('adSpend'))document.getElementById('adSpend').value='';
-  document.getElementById('spendRow').classList.remove('show');
+
   document.getElementById('genBtn').disabled=true;document.getElementById('genBtn').textContent='Upload GA4 JSON to start';
   document.getElementById('outBody').innerHTML='<div class="placeholder">Upload your audit data and hit generate. One combined AI summary across GA4, GTM, and compliance — with competitive benchmarking and a plan recommendation based on what\'s actually broken.</div>';
   document.getElementById('outDot').className='out-dot';document.getElementById('outStatus').textContent='Waiting for input';
@@ -210,7 +198,6 @@ function loadFile(type,file){
       if(state.ga.optimized){
         document.getElementById('genBtn').disabled=false;
         document.getElementById('genBtn').textContent='Generate AI Summary';
-        document.getElementById('spendRow').classList.add('show');
         document.getElementById('clearBtn').style.display='';
       }
     }catch(err){dz.querySelector('.dz-text').innerHTML='<span style="color:var(--red)">Error: '+esc(err.message.slice(0,60))+'</span>'}
@@ -241,30 +228,40 @@ function optimizeComp(raw){
 }
 
 // Combined prompt — one call, all data, single summary
-const SYSTEM_PROMPT=`You write ONE combined audit summary for GAfix.ai covering GA4 + GTM + Compliance in a single narrative.
+const SYSTEM_PROMPT=`You write ONE combined audit summary for GAfix.ai covering GA4 + GTM + Compliance.
 
 PERSONALIZE:
-- Infer the business type from URL, property name, key events, integrations
-- Name the business and its specific conversion goal
-- Every issue must connect to THEIR business impact
-- If ad spend is provided, calculate estimated wasted spend
+- Infer business type from URL, property name, key events, integrations. Name the business.
+- Every issue = THEIR specific business impact. NEVER use currency symbols for non-monetary numbers.
 
-COMPETITIVE BENCHMARKING:
-- Name 2-3 real competitor or similar websites in the same industry/niche
-- For each, give a realistic benchmark score (what a well-configured setup in that industry typically looks like)
-- Frame as: "Sites like [competitor1] and [competitor2] in your space typically score 75-85 on GA4 tracking. Your setup at [score] means..."
-- Use real, recognizable brand names that the business owner would know as competitors or peers
+IMPACT SNAPSHOT (most important — shown as big visual metrics):
+Pull directly from audit data. Use ACTUAL key event names and source names from the data — never assume or generalize.
+- sessions_broken: sessions with quality issues (bot + not-set landing pages + unattributed). Format: "X of Y (Z%)"
+- key_events_status: which key events work, which don't.
+  - If 4 or fewer events are broken: name ALL of them. "4 of 6 never fired: generate_lead, phone_call, book_demo, contact_form"
+  - If 5+ events are broken: name the top 3 by importance (key conversion events first), then roll up the rest. "9 of 14 never fired: generate_lead, phone_call, book_demo, and 6 others"
+  - NEVER list more than 3-4 specific names — cap it and roll the remainder into a count, same pattern either way.
+- paid_sources: list paid traffic sources with issues, ranked by session volume (highest first).
+  - If 4 or fewer sources have issues: list all of them individually.
+  - If 5+ sources have issues: list the top 3 by session volume individually, then add ONE final rollup entry: {"source":"+N more sources","sessions":null,"issue":"also affected — mostly missing or generic UTMs"}
+  - Pull from traffic_source_effectiveness insights. Example: [{"source":"Google Ads","sessions":39364,"issue":"12 mis-tagged + 39 missing UTMs"},{"source":"Meta","sessions":8200,"issue":"all sessions missing UTMs"}]
+- compliance: 1-line consent status with banner platform and region
 
-ISSUES:
-- List the top 5-6 issues across GA4, GTM, and compliance combined
-- For each: a severity (HIGH or FIX), a short title, a 1-2 sentence plain-language description, and which audit it came from (ga/gtm/comp)
-- Priority: revenue-impacting > attribution > measurement > container hygiene > compliance
-- Plain English, no jargon
+BENCHMARKING:
+- Name 2-3 real competitor/peer websites the business owner would recognize
+- Give each a realistic benchmark score for a well-configured GA4 setup
 
-LENGTH: headline max 2 sentences. Each issue description max 2 sentences. Benchmark section max 3 sentences. Keep total output under 900 tokens.
+WHAT NEEDS WORK:
+- Top 5-6 issues across GA4, GTM, compliance. Each has severity (HIGH/FIX), title, 1-sentence IMPACT (what this costs the business — not what's technically wrong), source (ga/gtm/comp)
+- Priority: revenue > attribution > measurement > container > compliance
 
-Return ONLY a single-line JSON (no newlines inside values, no markdown fences):
-{"headline":"Personalized 1-2 sentence summary with business context and biggest risk. Include ad waste estimate if spend provided.","benchmarks":[{"name":"competitor name","score":75,"note":"short context"},{"name":"competitor name","score":82,"note":"short context"}],"your_score":53,"issues":[{"severity":"HIGH","title":"short title","desc":"1-2 sentence plain description","source":"ga"},{"severity":"FIX","title":"short title","desc":"description","source":"gtm"}],"plan_trigger":"tracking_broken|ads_leaking|compliance_risk|container_messy|mostly_clean"}`;
+WHAT'S WORKING:
+- 2-3 short bullet points. Keeps it from feeling like a total teardown.
+
+LENGTH: Keep total under 900 tokens. Headline max 2 sentences. Each impact max 1 sentence.
+
+Return ONLY single-line JSON (no newlines inside values, no markdown fences):
+{"headline":"1-2 sentences. Business name + biggest risk.","impact":{"sessions_broken":"X of Y (Z%)","key_events_status":"N of M firing — list actual names not firing","paid_sources":[{"source":"Google Ads","sessions":39364,"issue":"specific issue"},{"source":"Meta","sessions":8200,"issue":"specific issue"}],"compliance":"1-line status"},"benchmarks":[{"name":"competitor","score":78,"note":"context"},{"name":"competitor","score":82}],"your_score":53,"issues":[{"severity":"HIGH","title":"title","impact":"1 sentence business impact","source":"ga"}],"working":["bullet 1","bullet 2"],"plan_trigger":"tracking_broken|ads_leaking|compliance_risk|container_messy|mostly_clean"}`;
 
 // Generate
 document.getElementById('genBtn').addEventListener('click', generate);
@@ -276,16 +273,12 @@ async function generate(){
   body.innerHTML='<div class="placeholder">Generating combined summary…</div>';
 
   const url=document.getElementById('urlInput').value.trim();
-  const adSpend=document.getElementById('adSpend')?.value;
 
-  // Build one combined payload (GA4 JSON includes compliance data)
   let dataBlock='';
   if(state.ga.optimized) dataBlock+='=== GA4 + COMPLIANCE AUDIT ===\n'+(typeof state.ga.optimized==='string'?state.ga.optimized:JSON.stringify(state.ga.optimized))+'\n\n';
   if(state.gtm.optimized) dataBlock+='=== GTM AUDIT ===\n'+(typeof state.gtm.optimized==='string'?state.gtm.optimized:JSON.stringify(state.gtm.optimized))+'\n\n';
 
-  let userMsg='Generate the combined summary.\n\nWebsite: '+(url||'not provided')+'\n';
-  if(adSpend&&parseFloat(adSpend)>0) userMsg+='Monthly ad spend: $'+parseFloat(adSpend).toLocaleString()+'\n';
-  userMsg+='\n'+dataBlock;
+  let userMsg='Generate the combined summary.\n\nWebsite: '+(url||'not provided')+'\n\n'+dataBlock;
 
   const t0=performance.now();
 
@@ -318,7 +311,7 @@ async function generate(){
     }
 
     // Render
-    renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed},adSpend);
+    renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed});
     dot.className='out-dot done';status.textContent='Summary generated';
   }catch(err){
     body.innerHTML='<div class="err-box">'+esc(err.message)+'</div>';
@@ -327,20 +320,49 @@ async function generate(){
   btn.disabled=false;btn.textContent='Regenerate';
 }
 
-function renderCombinedSummary(container,r,stats,adSpend){
+function renderCombinedSummary(container,r,stats){
   let h='';
 
   // Headline
   h+='<div class="sum-headline">'+esc(r.headline||'')+'</div>';
 
+  // Impact snapshot — big visual metrics
+  if(r.impact){
+    h+='<div class="sum-section"><div class="sum-label warn" style="color:var(--red)"><i style="font-style:normal">📉</i> Impact snapshot</div>';
+    h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
+    if(r.impact.sessions_broken){
+      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Sessions with broken data</div><div style="font-size:18px;font-weight:700;color:var(--red)">'+esc(r.impact.sessions_broken)+'</div></div>';
+    }
+    if(r.impact.key_events_status){
+      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Key events health</div><div style="font-size:13px;font-weight:600;color:var(--amber)">'+esc(r.impact.key_events_status)+'</div></div>';
+    }
+    if(r.impact.compliance){
+      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Consent compliance</div><div style="font-size:13px;font-weight:600">'+esc(r.impact.compliance)+'</div></div>';
+    }
+    h+='</div>';
+
+    // Paid sources breakdown — each source gets its own row
+    if(r.impact.paid_sources?.length){
+      h+='<div style="margin-top:10px"><div style="font-size:10px;color:var(--muted);margin-bottom:6px">Paid traffic by source</div>';
+      r.impact.paid_sources.forEach(ps=>{
+        h+='<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">';
+        h+='<div style="font-weight:600;min-width:100px">'+esc(ps.source||'')+'</div>';
+        h+='<div style="font-family:var(--mono);font-size:11px;min-width:60px">'+(ps.sessions?ps.sessions.toLocaleString()+' sess':'')+'</div>';
+        h+='<div style="color:var(--amber);flex:1">'+esc(ps.issue||'')+'</div>';
+        h+='</div>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  }
+
   // Benchmarks
   if(r.benchmarks?.length){
     h+='<div class="sum-section"><div class="sum-label bench"><i style="font-style:normal">📊</i> How you compare</div>';
     h+='<div class="bench-list">';
-    // Your score first
     const yourScore=parseInt(r.your_score)||0;
     h+=benchBar('Your site',yourScore);
-    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0,b.note)});
+    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0)});
     h+='</div></div>';
   }
 
@@ -352,13 +374,21 @@ function renderCombinedSummary(container,r,stats,adSpend){
       const sev=iss.severity==='HIGH'?'high':'fix';
       const src=iss.source||'ga';
       const srcLabel=src==='ga'?'GA4':src==='gtm'?'GTM':'Compliance';
-      h+='<div class="issue-card"><div class="ic-badge '+sev+'">'+esc(iss.severity||'FIX')+'</div><div class="ic-title">'+esc(iss.title||'')+'</div><div class="ic-desc">'+esc(iss.desc||'')+'</div><span class="ic-source '+src+'">'+srcLabel+'</span></div>';
+      h+='<div class="issue-card"><div class="ic-badge '+sev+'">'+esc(iss.severity||'FIX')+'</div><div class="ic-title">'+esc(iss.title||'')+'</div><div class="ic-desc">'+esc(iss.impact||iss.desc||'')+'</div><span class="ic-source '+src+'">'+srcLabel+'</span></div>';
     });
     h+='</div></div>';
   }
 
-  // Plan suggestion — based on plan_trigger, not score
-  h+=renderPlanBlock(r.plan_trigger,r.issues||[],adSpend);
+  // What's working
+  if(r.working?.length){
+    h+='<div class="sum-section"><div class="sum-label" style="color:var(--green)"><i style="font-style:normal">✓</i> What\'s working</div>';
+    h+='<div style="font-size:12px;color:var(--muted);line-height:1.7">';
+    r.working.forEach(w=>{h+='<div style="padding:2px 0">• '+esc(w)+'</div>'});
+    h+='</div></div>';
+  }
+
+  // Plan suggestion
+  h+=renderPlanBlock(r.plan_trigger,r.issues||[]);
 
   // Stats
   const inr=(stats.cost*USD_TO_INR).toFixed(2);
@@ -377,16 +407,15 @@ function benchBar(name,score,note){
   return h;
 }
 
-function renderPlanBlock(trigger,issues,adSpend){
-  // Smart plan logic — based on WHAT's broken, not just score
-  const hasAdIssues=issues.some(i=>/(utm|attribution|referral|ads|campaign|source)/i.test(i.title+' '+i.desc));
+function renderPlanBlock(trigger,issues){
+  const hasAdIssues=issues.some(i=>/(utm|attribution|referral|ads|campaign|source)/i.test((i.title||'')+' '+(i.impact||i.desc||'')));
   const hasCompliance=issues.some(i=>i.source==='comp');
   const hasContainerMess=issues.some(i=>i.source==='gtm');
   const highCount=issues.filter(i=>i.severity==='HIGH').length;
 
   let plan,reason,price,annual,features,url;
 
-  if(trigger==='ads_leaking'||hasAdIssues||(adSpend&&parseFloat(adSpend)>1000)){
+  if(trigger==='ads_leaking'||hasAdIssues){
     plan='Growth';price='$249';annual='$199/mo billed yearly';
     url='https://app.gafix.ai/sign-up?redirect=%2Fpayment%2Fplan%3Fplan%3D8%26cycle%3Dmonthly';
     features='Everything in Starter + monitoring between runs · Google Ads destinations · 5 expert fixes/mo · Priority support';
