@@ -353,6 +353,12 @@ READ THE DATA CORRECTLY - avoid false alarms:
 STYLE: plain English for a business owner. Lead with what is broken and what it costs THIS business (donations, leads, sales, sign-ups).
 
 FIELD RULES — every field has a HARD word cap. Going over wastes budget needed for later fields:
+- headline: max 2 sentences. VARY THE STRUCTURE — do not default to "X works/tracks fine, but Y gaps put Z at risk" every time. Rotate between these shapes based on what fits best:
+  (a) lead with the number: "428K sessions are losing attribution because..."
+  (b) lead with the consequence: "Ad budget is being spent blind at [Business] because..."
+  (c) lead with the business goal at risk: "[Business]'s lead pipeline has a visibility gap: ..."
+  (d) a direct statement of the core problem, business name worked in naturally rather than always first.
+  Never reuse the same opening 3 words as a previous run would suggest — do not start consecutive-sounding summaries with "The [Business] tracks/runs/does..." pattern.
 - biggest_gap: max 20 words. The single most important measurable gap, quoted from the data (e.g. "7.14% of events malformed (1 of 14)").
 - key_events: max 20 words. "X of Y key events receiving data" and name up to 2 relevant ones that are not.
 - paid_sources: top 3 by sessions, max 10 words of issue text each. If more than 3 have issues, add one rollup entry {"source":"+N more","sessions":null,"issue":"also affected"}. Empty array if no paid traffic.
@@ -499,7 +505,7 @@ function renderCombinedSummary(container,r,stats){
     h+='<div class="bench-list">';
     const yourScore=parseInt(r.your_score)||0;
     h+=benchBar('Your site',yourScore);
-    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0,b.url)});
+    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0,b.url,true)});
     h+='</div><div style="font-size:10px;color:var(--muted);margin-top:6px">Peer scores are AI estimates of a well-configured setup in your sector, not measured data.</div></div>';
   }
 
@@ -527,6 +533,9 @@ function renderCombinedSummary(container,r,stats){
   // Plan suggestion
   h+=renderPlanBlock(r.plan_trigger,r.issues||[]);
 
+  // Categorization disclaimer
+  h+='<div style="font-size:10px;color:var(--muted);margin-top:10px;text-align:center">Business type and goals are inferred from available signals and may not always be accurate.</div>';
+
   // Stats
   const inr=(stats.cost*USD_TO_INR).toFixed(2);
   h+='<div class="s-meta">';
@@ -538,12 +547,13 @@ function renderCombinedSummary(container,r,stats){
   container.innerHTML=h;
 }
 
-function benchBar(name,score,url){
+function benchBar(name,score,url,isCompetitor){
   const cls=score>=75?'good':score>=50?'mid':'bad';
   let nameHtml=esc(name);
-  if(url!==undefined){
-    // Trust a real-looking URL from the model; otherwise fall back to a safe
-    // search link so this is never a dead/guessed domain.
+  if(isCompetitor){
+    // Competitors always get a link — the model usually omits "url" on purpose
+    // (told to do so unless certain of the real domain), so the fallback search
+    // link is the common case, not an edge case. Only "Your site" skips linking.
     let href=(typeof url==='string'&&/^https?:\/\//.test(url))?url:('https://www.google.com/search?q='+encodeURIComponent(name+' official website'));
     nameHtml='<a href="'+esc(href)+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--muted)">'+esc(name)+'</a>';
   }
