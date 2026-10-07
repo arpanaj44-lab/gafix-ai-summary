@@ -182,7 +182,7 @@ function loadFile(type,file){
     try{
       if(fmt==='json'){
         const parsed=JSON.parse(raw);
-        let opt;if(type==='ga')opt=optimizeGA(parsed);else if(type==='gtm')opt=optimizeGTM(parsed);else opt=optimizeComp(parsed);
+        const opt=type==='ga'?optimizeGA(parsed):optimizeGTM(parsed);
         const optSize=(JSON.stringify(opt).length/1024).toFixed(1);
         state[type]={raw:parsed,optimized:opt,format:'json'};
         dz.classList.add('loaded');dz.querySelector('.dz-text').innerHTML='✓ '+esc(file.name);
@@ -204,64 +204,169 @@ function loadFile(type,file){
   };reader.readAsText(file);
 }
 
-// Optimizers (same as before)
+// ── Optimizers ──
+// Goal: send the AI only what it needs (findings, scores, names, counts) — no graphs,
+// screenshots, articles or icon URLs. Anything not recognised is passed through "slimmed".
+
+const DROP_KEYS=new Set(['screenshot','website_screenshot','icon_url','graph','graph1','graph2','best_practices','learn_how_to_fix','cookies','versions','pro_message','simulated_from']);
+
+// Caps arrays at 6 items and strings at 160 chars, drops heavy keys
+function slim(v){
+  if(Array.isArray(v))return v.slice(0,6).map(slim);
+  if(v&&typeof v==='object'){const o={};for(const[k,val]of Object.entries(v)){if(DROP_KEYS.has(k))continue;o[k]=slim(val)}return o}
+  if(typeof v==='string')return v.length>160?v.slice(0,160)+'…':v;
+  return v;
+}
+
+// One GA4 checkpoint → score/status + the actual findings (not the charts)
+function compactCheckpoint(cp){
+  const o={score:cp.health_score,status:cp.health_status};
+  const issues=(cp.data?.missing||[]).slice(0,6).map(m=>{
+    const x={};
+    if(m.name)x.issue=m.name;
+    if(m.details)x.detail=String(m.details).slice(0,200);
+    if(m.status)x.severity=m.status;
+    const items=(m.items||[]).map(i=>i.name).filter(Boolean).slice(0,5);
+    if(items.length)x.items=items;
+    return x;
+  });
+  if(issues.length)o.issues=issues;
+  else{
+    const notes=(cp.assessment||[]).map(a=>[a.name,a.details].filter(Boolean).join(': ')).slice(0,2);
+    if(notes.length)o.notes=notes;
+  }
+  if((cp.insights||[]).length)o.insights=slim(cp.insights.slice(0,6));
+  return o;
+}
+
+// Key event names/status/counts live in the checkpoint's graph, not in insights
+function keyEventsFromGraph(cp){
+  const out=[];
+  (Array.isArray(cp.graph)?cp.graph:[]).forEach(stream=>{
+    (stream.events||[]).forEach(e=>{
+      const x={event:e.event_name,status:e.status,count:e.event_count};
+      if(e.status==='Inactive'&&e.description)x.note=e.description;
+      out.push(x);
+    });
+  });
+  return out.slice(0,15);
+}
+
+// Compliance: per-domain consent state. Handles one domain (object) or many (array) so
+// multi-domain scans work later without changes here.
+function complianceFromCheckpoint(cp){
+  const g=cp.graph?.graph1;
+  const list=(Array.isArray(g)?g:[g?.graph1||g]).filter(Boolean);
+  return{
+    domains:list.slice(0,8).map(d=>({
+      domain:d.default_uri||d.domain||undefined,
+      region:d.region_name,
+      consent_model:d.consent_model_label,
+      law:d.privacy_law,
+      status:d.overall_status,
+      banner:d.banner?{present:d.banner.present,platform:d.banner.platform}:undefined,
+      configured:(d.configured||[]).map(c=>c.name||c.details).filter(Boolean).slice(0,4),
+      violations:(d.missing||[]).map(m=>({issue:m.name,detail:String(m.details||'').slice(0,200)})).slice(0,4)
+    })),
+    trackers_outside_gtm:(cp.data?.missing||[]).map(m=>({issue:m.name,detail:m.details,items:(m.items||[]).map(i=>i.name).filter(Boolean).slice(0,5)})).slice(0,4)
+  };
+}
+
 function optimizeGA(raw){
-  const p={property:{name:raw.account_summary?.property_name||'',account:raw.account_summary?.account_name||raw.account_summary?.name||'',url:raw.account_summary?.streams?.[0]?.url||'',currency:raw.audit_report?.property_overview?.currency||'',attribution:raw.audit_report?.property_overview?.attribution_model||'',period:raw.account_summary?.time_period||''},scores:{overall:raw.audit_report?.score_summary?.[0]?.value||'0',status:raw.audit_report?.status||'Unknown',passed:raw.audit_report?.score_summary?.[1]?.value||'0',recoverable_pts:raw.audit_report?.recoverable_pts||0},ads_detected:false,integrations:[],categories:[],checkpoints:{}};
-  (raw.checkpoints?.integrations?.insights||[]).forEach(i=>{p.integrations.push({name:i.name,linked:!!i.is_linked});if(i.name==='Google Ads'&&i.is_linked)p.ads_detected=true});
-  (raw.checkpoint_summary||[]).forEach(cat=>{const c={name:cat.name,checkpoints:[]};(cat.sub_category||[]).forEach(sc=>{c.checkpoints.push({name:sc.name,score:sc.health_score,status:sc.health_status})});p.categories.push(c)});
-  for(const[k,cp]of Object.entries(raw.checkpoints||{})){if(k==='compliance')continue;const e={score:cp.health_score,status:cp.health_status,assessment:(cp.assessment||[]).filter(a=>a.details).map(a=>a.details).slice(0,3)};const ins=cp.insights||[];if(ins.length)e.insights=ins.slice(0,2).map(i=>{const c={};for(const[ik,iv]of Object.entries(i)){if(!['screenshot','icon_url','graph1','graph2','best_practices','cookies'].includes(ik))c[ik]=iv}return c});p.checkpoints[k]=e}
-  if(raw.audit_report?.trend_alert)p.trend={count:raw.audit_report.trend_alert.count,message:raw.audit_report.trend_alert.message};
+  const as=raw.account_summary||{},ar=raw.audit_report||{},cps=raw.checkpoints||{};
+  const ss=ar.score_summary||[];
+  const p={
+    property:{
+      name:as.property_name||'',account:as.account_name||as.name||'',
+      url:as.streams?.[0]?.url||'',period:as.time_period||as.reporting_period||'',
+      attribution:ar.property_overview?.attribution_model||'',
+      sessions:cps.referral_exclusion?.insights?.[0]?.total_sessions||cps.bot_traffic_detection?.insights?.[0]?.total_sessions||undefined
+    },
+    scores:{overall:ss[0]?.value,status:ar.status,passed:ss[1]?.value,warnings:ss[2]?.value,critical:ss[3]?.value},
+    ads_detected:false,integrations:[],categories:[],checkpoints:{}
+  };
+  (cps.integrations?.insights||[]).forEach(i=>{p.integrations.push({name:i.name,linked:!!i.is_linked});if(i.name==='Google Ads'&&i.is_linked)p.ads_detected=true});
+  (raw.checkpoint_summary||[]).forEach(cat=>{p.categories.push({name:cat.name,checkpoints:(cat.sub_category||[]).map(sc=>({name:sc.name,score:sc.health_score,status:sc.health_status}))})});
+  if(cps.key_events_tracking)p.key_events=keyEventsFromGraph(cps.key_events_tracking);
+  if(cps.compliance)p.compliance=complianceFromCheckpoint(cps.compliance);
+  for(const[k,cp]of Object.entries(cps)){
+    if(k==='compliance'||!cp||typeof cp!=='object')continue;
+    p.checkpoints[k]=compactCheckpoint(cp);
+  }
+  if(ar.trend_alert)p.trend={count:ar.trend_alert.count,message:ar.trend_alert.message};
   return p;
 }
+
+// GTM report (report_overview / audit_summary / gtm_directory / advisory_checks / container_issues)
 function optimizeGTM(raw){
+  if(!raw.report_overview&&!raw.audit_summary)return optimizeGTMLegacy(raw);
+  const ro=raw.report_overview||{};
+  const p={
+    container:{
+      id:ro.container_id,health:ro.overall_health,status:ro.overall_status,
+      passed_checks:ro.passed_checks,critical:ro.critical_issues,warnings:ro.warning_alerts,
+      tags:ro.total_tags,triggers:ro.total_triggers,variables:ro.total_variables,paused_tags:ro.paused_tags,
+      consent_platform_in_container:ro.has_cmp,consent_mode:ro.has_consent_mode,server_side:ro.has_server_side,google_tag_gateway:ro.has_gtg
+    },
+    areas:[],notes:[]
+  };
+  (raw.audit_summary||[]).forEach(cat=>{
+    p.areas.push({area:cat.name,checks:(cat.checkpoints||[]).map(c=>{
+      const o={name:c.name};
+      if(c.health_status==='Scan Failure'){o.status='Not scanned (needs container export) — not a problem'}
+      else{o.status=c.health_status;if(c.health_status!=='Optimal'){o.score=c.health_score;if(c.assets_affected&&Object.values(c.assets_affected).some(n=>n>0))o.assets_affected=c.assets_affected}}
+      return o;
+    })});
+  });
+  [raw.advisory_checks,raw.container_issues].forEach(group=>{
+    Object.values(group||{}).forEach(c=>{
+      if(!c||!c.name||!c.health_status||c.health_status==='Optimal'||c.health_status==='Scan Failure')return;
+      if(p.notes.some(n=>n.name===c.name))return;
+      p.notes.push({name:c.name,status:c.health_status,what_it_checks:String(c.summary||c.description||'').slice(0,160)});
+    });
+  });
+  const mix={};(raw.gtm_directory?.tags||[]).forEach(t=>{const k=t.vendor||t.category||'other';mix[k]=(mix[k]||0)+1});
+  p.tag_vendors=mix;
+  return p;
+}
+
+function optimizeGTMLegacy(raw){
   const p={checkpoints:{},categories:[],scores:{}};
   if(raw.audit_report)p.scores={overall:raw.audit_report?.score_summary?.[0]?.value||'0',status:raw.audit_report?.status||'Unknown'};
-  if(raw.checkpoint_summary)raw.checkpoint_summary.forEach(cat=>{const c={name:cat.name,checkpoints:[]};(cat.sub_category||[]).forEach(sc=>{c.checkpoints.push({name:sc.name,score:sc.health_score,status:sc.health_status})});p.categories.push(c)});
-  for(const[k,cp]of Object.entries(raw.checkpoints||{}))p.checkpoints[k]={score:cp.health_score,status:cp.health_status,assessment:(cp.assessment||[]).filter(a=>a.details).map(a=>a.details).slice(0,3),insights:(cp.insights||[]).slice(0,2).map(i=>{const c={};for(const[ik,iv]of Object.entries(i)){if(!['screenshot','icon_url','graph1','graph2'].includes(ik))c[ik]=iv}return c})};
+  (raw.checkpoint_summary||[]).forEach(cat=>{p.categories.push({name:cat.name,checkpoints:(cat.sub_category||[]).map(sc=>({name:sc.name,score:sc.health_score,status:sc.health_status}))})});
+  for(const[k,cp]of Object.entries(raw.checkpoints||{}))p.checkpoints[k]=compactCheckpoint(cp);
   return p;
-}
-function optimizeComp(raw){
-  const p={domains:[],trackers_outside_gtm:[]};const comp=raw.checkpoints?.compliance||raw;const g1=comp.graph?.graph1?.graph1||comp.graph?.graph1||{};
-  const addD=g=>{if(!g.region_name&&!g.region)return;p.domains.push({domain:g.default_uri||g.domain||'',region:g.region_name||g.region||'',consent_model:g.consent_model_label||g.consent_model||'',privacy_law:g.privacy_law||'',banner_platform:g.banner?.platform||'',banner_detected:g.banner?.present,overall_status:g.overall_status||'',configured:(g.configured||[]).map(c=>c.name||c.details||''),violations:(g.missing||[]).map(m=>m.name||m.details||''),cookies_summary:(g.events||[]).map(e=>({category:e.category,total:e.total_cookies,status:e.status}))})};
-  if(Array.isArray(g1))g1.forEach(addD);else addD(g1);
-  p.trackers_outside_gtm=(comp.data?.missing||[]).map(m=>m.details||m.name||'');return p;
 }
 
 // Combined prompt — one call, all data, single summary
-const SYSTEM_PROMPT=`You write ONE combined audit summary for GAfix.ai covering GA4 + GTM + Compliance.
+const SYSTEM_PROMPT=`You write ONE combined audit summary for GAfix.ai from GA4 + Compliance data (and GTM data when provided).
 
-PERSONALIZE:
-- Infer business type from URL, property name, key events, integrations. Name the business.
-- Every issue = THEIR specific business impact. NEVER use currency symbols for non-monetary numbers.
+READ THE DATA CORRECTLY - avoid false alarms:
+- Business: infer from the URL, property name and the ACTUAL key event names (donation_success = nonprofit, purchase = online store, cf7_lead / phone_click = lead generation, sign_up = SaaS). Name the business and its real goal.
+- Key events: ignore any default event whose note says it "likely doesn't apply to this site" (e.g. purchase on a non-store). Never call those broken.
+- "Not scanned" or "Scan Failure" means the check could not run. It is NOT a problem. Never list it as an issue.
+- "Advisory" is informational, not broken, even if its score shows 0.
+- Use numbers exactly as given. Never invent, estimate or recalculate figures. Never put currency symbols on session or event counts.
+- Always cover compliance (the "compliance" section): banner present or not, region and law, and trackers loading outside GTM.
+- Only mention GTM if GTM data is provided. Treat Optimal GTM checks as positives.
 
-IMPACT SNAPSHOT (most important — shown as big visual metrics):
-Pull directly from audit data. Use ACTUAL key event names and source names from the data — never assume or generalize.
-- sessions_broken: sessions with quality issues (bot + not-set landing pages + unattributed). Format: "X of Y (Z%)"
-- key_events_status: which key events work, which don't.
-  - If 4 or fewer events are broken: name ALL of them. "4 of 6 never fired: generate_lead, phone_call, book_demo, contact_form"
-  - If 5+ events are broken: name the top 3 by importance (key conversion events first), then roll up the rest. "9 of 14 never fired: generate_lead, phone_call, book_demo, and 6 others"
-  - NEVER list more than 3-4 specific names — cap it and roll the remainder into a count, same pattern either way.
-- paid_sources: list paid traffic sources with issues, ranked by session volume (highest first).
-  - If 4 or fewer sources have issues: list all of them individually.
-  - If 5+ sources have issues: list the top 3 by session volume individually, then add ONE final rollup entry: {"source":"+N more sources","sessions":null,"issue":"also affected — mostly missing or generic UTMs"}
-  - Pull from traffic_source_effectiveness insights. Example: [{"source":"Google Ads","sessions":39364,"issue":"12 mis-tagged + 39 missing UTMs"},{"source":"Meta","sessions":8200,"issue":"all sessions missing UTMs"}]
-- compliance: 1-line consent status with banner platform and region
+STYLE: plain English for a business owner. Lead with what is broken and what it costs THIS business (donations, leads, sales, sign-ups).
 
-BENCHMARKING:
-- Name 2-3 real competitor/peer websites the business owner would recognize
-- Give each a realistic benchmark score for a well-configured GA4 setup
+FIELD RULES:
+- biggest_gap: the single most important measurable gap, quoted from the data (e.g. "7.14% of events malformed (1 of 14)").
+- key_events: "X of Y key events receiving data" and name up to 3 relevant ones that are not. If all relevant events work, say so.
+- paid_sources: top 3 paid sources by sessions with a short issue each (use the Paid group in traffic_source_effectiveness). If more than 3 have issues, add one rollup entry {"source":"+N more","sessions":null,"issue":"also affected"}. Empty array if there is no paid traffic.
+- compliance: one line, e.g. "No consent banner (Virginia, opt-out law); 3 trackers load outside GTM".
+- benchmarks: 2-3 well-known peer sites in the same sector, each with an estimated score for a well-configured GA4 setup.
+- your_score: scores.overall exactly as given.
+- issues: 4-5 max, most costly first. severity HIGH or FIX. impact = ONE sentence on what it costs the business. source = ga, gtm or comp.
+- working: 2-3 short positives.
+- plan_trigger: tracking_broken | ads_leaking | compliance_risk | container_messy | mostly_clean.
 
-WHAT NEEDS WORK:
-- Top 4-5 issues across GA4, GTM, compliance (not more — be selective). Each has severity (HIGH/FIX), title, 1-sentence IMPACT (what this costs the business — not what's technically wrong), source (ga/gtm/comp)
-- Priority: revenue > attribution > measurement > container > compliance
+LENGTH: aim for about 800 output tokens. One short sentence per field. Headline max 2 sentences.
 
-WHAT'S WORKING:
-- 2-3 short bullet points. Keeps it from feeling like a total teardown.
-
-LENGTH: This is strict — the entire JSON response must fit comfortably under 1400 tokens total, no exceptions. Headline max 2 sentences. Each impact statement max 1 sentence. Max 3 benchmarks. Max 2-3 working bullets. If you're running long, cut detail from issue descriptions before cutting entire issues.
-
-Return ONLY single-line JSON (no newlines inside values, no markdown fences):
-{"headline":"1-2 sentences. Business name + biggest risk.","impact":{"sessions_broken":"X of Y (Z%)","key_events_status":"N of M firing — list actual names not firing","paid_sources":[{"source":"Google Ads","sessions":39364,"issue":"specific issue"},{"source":"Meta","sessions":8200,"issue":"specific issue"}],"compliance":"1-line status"},"benchmarks":[{"name":"competitor","score":78,"note":"context"},{"name":"competitor","score":82}],"your_score":53,"issues":[{"severity":"HIGH","title":"title","impact":"1 sentence business impact","source":"ga"}],"working":["bullet 1","bullet 2"],"plan_trigger":"tracking_broken|ads_leaking|compliance_risk|container_messy|mostly_clean"}`;
+Return ONLY single-line JSON - no markdown, no newlines inside values:
+{"headline":"","impact":{"biggest_gap":"","key_events":"","paid_sources":[{"source":"","sessions":0,"issue":""}],"compliance":""},"benchmarks":[{"name":"","score":0}],"your_score":0,"issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"working":[""],"plan_trigger":""}`;
 
 // Generate
 document.getElementById('genBtn').addEventListener('click', generate);
@@ -283,9 +388,21 @@ async function generate(){
   const t0=performance.now();
 
   try{
-    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:3000,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}]})});
-    const data=await resp.json();const elapsed=((performance.now()-t0)/1000).toFixed(1);
-    if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
+    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:1800,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}]})});
+    const elapsed=((performance.now()-t0)/1000).toFixed(1);
+    // Read as text first: when Vercel times out it returns a plain-text page, not JSON
+    const rawBody=await resp.text();
+    let data;
+    try{data=JSON.parse(rawBody)}catch(_){
+      const timedOut=resp.status===504||/TIMEOUT|timed out/i.test(rawBody);
+      throw new Error(timedOut
+        ?'The server timed out before the AI finished (HTTP '+resp.status+'). Click Regenerate to try again.'
+        :'Unexpected server response (HTTP '+resp.status+'): '+rawBody.slice(0,120));
+    }
+    if(!resp.ok||data.error){
+      const msg=typeof data.error==='string'?data.error:(data.error?.message||'Request failed (HTTP '+resp.status+')');
+      throw new Error(msg+(data.code?' ['+data.code+']':''));
+    }
 
     const rawText=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
     const inTok=data.usage?.input_tokens||0,outTok=data.usage?.output_tokens||0;
@@ -309,6 +426,10 @@ async function generate(){
       dot.className='out-dot';status.textContent='Incomplete response';btn.disabled=false;btn.textContent='Regenerate';return;
     }
 
+    // Use the audit's real score (deterministic) rather than whatever the model echoed back
+    const realScore=parseInt(state.ga.optimized?.scores?.overall);
+    if(!isNaN(realScore))result.your_score=realScore;
+
     // Render
     renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed});
     dot.className='out-dot done';status.textContent='Summary generated';
@@ -329,11 +450,13 @@ function renderCombinedSummary(container,r,stats){
   if(r.impact){
     h+='<div class="sum-section"><div class="sum-label warn" style="color:var(--red)"><i style="font-style:normal">📉</i> Impact snapshot</div>';
     h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">';
-    if(r.impact.sessions_broken){
-      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Sessions with broken data</div><div style="font-size:18px;font-weight:700;color:var(--red)">'+esc(r.impact.sessions_broken)+'</div></div>';
+    const gap=r.impact.biggest_gap||r.impact.sessions_broken;
+    if(gap){
+      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Biggest data gap</div><div style="font-size:15px;font-weight:700;color:var(--red)">'+esc(gap)+'</div></div>';
     }
-    if(r.impact.key_events_status){
-      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Key events health</div><div style="font-size:13px;font-weight:600;color:var(--amber)">'+esc(r.impact.key_events_status)+'</div></div>';
+    const ke=r.impact.key_events||r.impact.key_events_status;
+    if(ke){
+      h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Key events health</div><div style="font-size:13px;font-weight:600;color:var(--amber)">'+esc(ke)+'</div></div>';
     }
     if(r.impact.compliance){
       h+='<div style="background:var(--raised);border:1px solid var(--border);border-radius:8px;padding:10px 12px"><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Consent compliance</div><div style="font-size:13px;font-weight:600">'+esc(r.impact.compliance)+'</div></div>';
@@ -362,7 +485,7 @@ function renderCombinedSummary(container,r,stats){
     const yourScore=parseInt(r.your_score)||0;
     h+=benchBar('Your site',yourScore);
     r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0)});
-    h+='</div></div>';
+    h+='</div><div style="font-size:10px;color:var(--muted);margin-top:6px">Peer scores are AI estimates of a well-configured setup in your sector, not measured data.</div></div>';
   }
 
   // Issues
