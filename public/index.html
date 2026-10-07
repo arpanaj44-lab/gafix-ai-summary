@@ -357,7 +357,7 @@ FIELD RULES:
 - key_events: "X of Y key events receiving data" and name up to 3 relevant ones that are not. If all relevant events work, say so.
 - paid_sources: top 3 paid sources by sessions with a short issue each (use the Paid group in traffic_source_effectiveness). If more than 3 have issues, add one rollup entry {"source":"+N more","sessions":null,"issue":"also affected"}. Empty array if there is no paid traffic.
 - compliance: one line, e.g. "No consent banner (Virginia, opt-out law); 3 trackers load outside GTM".
-- benchmarks: 2-3 well-known peer sites in the same sector, each with an estimated score for a well-configured GA4 setup.
+- benchmarks: 2-3 well-known peer sites in the same sector, each with an estimated score for a well-configured GA4 setup. Only include "url" if you are confident of the real domain (e.g. well-known brands) - omit it entirely rather than guess.
 - your_score: scores.overall exactly as given.
 - issues: 4-5 max, most costly first. severity HIGH or FIX. impact = ONE sentence on what it costs the business. source = ga, gtm or comp.
 - working: 2-3 short positives.
@@ -366,7 +366,7 @@ FIELD RULES:
 LENGTH: aim for about 800 output tokens. One short sentence per field. Headline max 2 sentences.
 
 Return ONLY single-line JSON - no markdown, no newlines inside values:
-{"headline":"","impact":{"biggest_gap":"","key_events":"","paid_sources":[{"source":"","sessions":0,"issue":""}],"compliance":""},"benchmarks":[{"name":"","score":0}],"your_score":0,"issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"working":[""],"plan_trigger":""}`;
+{"headline":"","impact":{"biggest_gap":"","key_events":"","paid_sources":[{"source":"","sessions":0,"issue":""}],"compliance":""},"benchmarks":[{"name":"","score":0,"url":""}],"your_score":0,"issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"working":[""],"plan_trigger":""}`;
 
 // Generate
 document.getElementById('genBtn').addEventListener('click', generate);
@@ -388,7 +388,7 @@ async function generate(){
   const t0=performance.now();
 
   try{
-    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:1800,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}]})});
+    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:1800,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}],site_url:url||undefined})});
     const elapsed=((performance.now()-t0)/1000).toFixed(1);
     // Read as text first: when Vercel times out it returns a plain-text page, not JSON
     const rawBody=await resp.text();
@@ -484,7 +484,7 @@ function renderCombinedSummary(container,r,stats){
     h+='<div class="bench-list">';
     const yourScore=parseInt(r.your_score)||0;
     h+=benchBar('Your site',yourScore);
-    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0)});
+    r.benchmarks.forEach(b=>{h+=benchBar(b.name,parseInt(b.score)||0,b.url)});
     h+='</div><div style="font-size:10px;color:var(--muted);margin-top:6px">Peer scores are AI estimates of a well-configured setup in your sector, not measured data.</div></div>';
   }
 
@@ -523,9 +523,16 @@ function renderCombinedSummary(container,r,stats){
   container.innerHTML=h;
 }
 
-function benchBar(name,score,note){
+function benchBar(name,score,url){
   const cls=score>=75?'good':score>=50?'mid':'bad';
-  let h='<div class="bench-item"><div class="b-name">'+esc(name)+'</div><div class="b-bar"><div class="b-fill '+cls+'" style="width:'+score+'%"></div></div><div class="b-score">'+score+'</div></div>';
+  let nameHtml=esc(name);
+  if(url!==undefined){
+    // Trust a real-looking URL from the model; otherwise fall back to a safe
+    // search link so this is never a dead/guessed domain.
+    let href=(typeof url==='string'&&/^https?:\/\//.test(url))?url:('https://www.google.com/search?q='+encodeURIComponent(name+' official website'));
+    nameHtml='<a href="'+esc(href)+'" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;border-bottom:1px dotted var(--muted)">'+esc(name)+'</a>';
+  }
+  let h='<div class="bench-item"><div class="b-name">'+nameHtml+'</div><div class="b-bar"><div class="b-fill '+cls+'" style="width:'+score+'%"></div></div><div class="b-score">'+score+'</div></div>';
   return h;
 }
 
