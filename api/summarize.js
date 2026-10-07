@@ -6,7 +6,7 @@ export const config = { maxDuration: 60 };
 
 const ABORT_AFTER_MS = 48000; // leaves room for the scrape (below) inside the 52s/60s budget
 const SCRAPE_TIMEOUT_MS = 4000; // homepage fetch gets its own short, separate budget
-const MAX_OUTPUT_TOKENS = 2000; // hard ceiling: keeps latency and cost bounded
+const MAX_OUTPUT_TOKENS = 2400; // hard ceiling: keeps latency and cost bounded (~34s worst case at measured throughput)
 
 let bedrockClient;
 function getBedrockClient() {

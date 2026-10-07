@@ -352,21 +352,22 @@ READ THE DATA CORRECTLY - avoid false alarms:
 
 STYLE: plain English for a business owner. Lead with what is broken and what it costs THIS business (donations, leads, sales, sign-ups).
 
-FIELD RULES:
-- biggest_gap: the single most important measurable gap, quoted from the data (e.g. "7.14% of events malformed (1 of 14)").
-- key_events: "X of Y key events receiving data" and name up to 3 relevant ones that are not. If all relevant events work, say so.
-- paid_sources: top 3 paid sources by sessions with a short issue each (use the Paid group in traffic_source_effectiveness). If more than 3 have issues, add one rollup entry {"source":"+N more","sessions":null,"issue":"also affected"}. Empty array if there is no paid traffic.
-- compliance: one line, e.g. "No consent banner (Virginia, opt-out law); 3 trackers load outside GTM".
-- benchmarks: 2-3 well-known peer sites in the same sector, each with an estimated score for a well-configured GA4 setup. Only include "url" if you are confident of the real domain (e.g. well-known brands) - omit it entirely rather than guess.
+FIELD RULES — every field has a HARD word cap. Going over wastes budget needed for later fields:
+- biggest_gap: max 20 words. The single most important measurable gap, quoted from the data (e.g. "7.14% of events malformed (1 of 14)").
+- key_events: max 20 words. "X of Y key events receiving data" and name up to 2 relevant ones that are not.
+- paid_sources: top 3 by sessions, max 10 words of issue text each. If more than 3 have issues, add one rollup entry {"source":"+N more","sessions":null,"issue":"also affected"}. Empty array if no paid traffic.
+- compliance: max 20 words. e.g. "No consent banner (Virginia, opt-out law); 3 trackers load outside GTM".
+- issues: 4-5 max, most costly first. severity HIGH or FIX. impact = max 15 words on what it costs the business. source = ga, gtm or comp. THIS FIELD IS MANDATORY — never return an empty array if any checkpoint is not Optimal.
+- plan_trigger: tracking_broken | ads_leaking | compliance_risk | container_messy | mostly_clean. Pick tracking_broken if 2+ issues are HIGH severity, regardless of other fields.
+- working: 2-3 bullets, max 10 words each.
+- benchmarks: 2-3 well-known peer sites, max 8 words of note. Only include "url" if confident of the real domain - omit rather than guess.
 - your_score: scores.overall exactly as given.
-- issues: 4-5 max, most costly first. severity HIGH or FIX. impact = ONE sentence on what it costs the business. source = ga, gtm or comp.
-- working: 2-3 short positives.
-- plan_trigger: tracking_broken | ads_leaking | compliance_risk | container_messy | mostly_clean.
 
-LENGTH: aim for about 800 output tokens. One short sentence per field. Headline max 2 sentences.
+LENGTH: hard ceiling 1100 output tokens total. If you are running long, shorten or drop benchmarks/working BEFORE touching issues or plan_trigger — those two are the most important fields in this entire response and must always be complete.
 
+FIELD ORDER MATTERS — write them in exactly this order so the essential content comes first:
 Return ONLY single-line JSON - no markdown, no newlines inside values:
-{"headline":"","impact":{"biggest_gap":"","key_events":"","paid_sources":[{"source":"","sessions":0,"issue":""}],"compliance":""},"benchmarks":[{"name":"","score":0,"url":""}],"your_score":0,"issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"working":[""],"plan_trigger":""}`;
+{"headline":"","impact":{"biggest_gap":"","key_events":"","compliance":"","paid_sources":[{"source":"","sessions":0,"issue":""}]},"issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"plan_trigger":"","your_score":0,"working":[""],"benchmarks":[{"name":"","score":0,"url":""}]}`;
 
 // Generate
 document.getElementById('genBtn').addEventListener('click', generate);
@@ -388,7 +389,7 @@ async function generate(){
   const t0=performance.now();
 
   try{
-    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:1800,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}],site_url:url||undefined})});
+    const resp=await fetch(PROXY_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({max_tokens:2200,system:SYSTEM_PROMPT,messages:[{role:"user",content:userMsg}],site_url:url||undefined})});
     const elapsed=((performance.now()-t0)/1000).toFixed(1);
     // Read as text first: when Vercel times out it returns a plain-text page, not JSON
     const rawBody=await resp.text();
@@ -430,9 +431,23 @@ async function generate(){
     const realScore=parseInt(state.ga.optimized?.scores?.overall);
     if(!isNaN(realScore))result.your_score=realScore;
 
-    // Render
-    renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed});
-    dot.className='out-dot done';status.textContent='Summary generated';
+    // Bedrock's own stop_reason is ground truth for "did it actually finish".
+    // If it was cut off AND the one mandatory field (issues) is missing, the repair
+    // function likely closed the JSON before reaching it — don't show a confident
+    // plan recommendation built on zero issues, since that's actively misleading.
+    const wasTruncated=data.stop_reason==='max_tokens';
+    const missingEssentials=!result.issues||result.issues.length===0;
+    if(wasTruncated&&missingEssentials){
+      renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed});
+      const warn=document.createElement('div');
+      warn.className='err-box';warn.style.marginTop='12px';
+      warn.textContent='This response ran out of output room before listing the issues, so the plan recommendation above may not reflect the real severity. Click Regenerate for a complete result.';
+      body.insertBefore(warn,body.firstChild);
+      dot.className='out-dot live';status.textContent='Incomplete — see note above';
+    }else{
+      renderCombinedSummary(body,result,{inTok,outTok,cost,elapsed});
+      dot.className='out-dot done';status.textContent='Summary generated';
+    }
   }catch(err){
     body.innerHTML='<div class="err-box">'+esc(err.message)+'</div>';
     dot.className='out-dot';status.textContent='Error';
