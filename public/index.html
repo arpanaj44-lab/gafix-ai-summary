@@ -359,13 +359,7 @@ FIELD RULES — every field has a HARD word cap. Going over wastes budget needed
   (c) lead with the business goal at risk: "[Business]'s lead pipeline has a visibility gap: ..."
   (d) a direct statement of the core problem, business name worked in naturally rather than always first.
   Never reuse the same opening 3 words as a previous run would suggest — do not start consecutive-sounding summaries with "The [Business] tracks/runs/does..." pattern.
-- narrative: 2-3 short paragraphs (max 45 words each), told as a personalized story, not a data dashboard. Must still cover, in prose:
-  - the single biggest measurable gap, quoted exactly from the data (e.g. "7.14% of events are malformed")
-  - key events health: "X of Y key events receiving data" and name up to 2 that aren't, tied to what that means for THIS business specifically (a missed donation, an unlogged lead, an uncounted sale)
-  - paid traffic: name the top 1-2 paid sources by session volume and their specific issue, worked into a sentence rather than listed as a table row. If 3+ sources have issues, summarize rather than listing each.
-  - compliance: banner status, region, law, and any trackers outside GTM, woven in naturally
-  Use the business's own words/products from the scraped content where available (e.g. "kaftans", "dashboard wireframes", "trading accounts") instead of generic terms like "conversions" or "transactions".
-- issues: 4-5 max, most costly first. severity HIGH or FIX. impact = max 15 words on what it costs THIS business, named specifically (not "costs the business" - say what it actually costs: "leads", "donations", "ad budget on untraceable clicks"). source = ga, gtm or comp. THIS FIELD IS MANDATORY — never return an empty array if any checkpoint is not Optimal.
+- issues: 4-5 max, most costly first, drawn from across key events, paid traffic/attribution, GTM, and compliance - not just one area. severity HIGH or FIX. title = short and specific (name the actual thing: "4.71% duplicate events", "5 trackers outside GTM", "11 mis-tagged Google Ads entries" - not vague labels). impact = max 15 words on what it costs THIS business, named specifically ("leads", "donations", "ad budget on untraceable clicks" - not "costs the business"). source = ga, gtm or comp. Use the business's own words/products from the scraped content where available (e.g. "kaftans", "dashboard wireframes") instead of generic terms. THIS FIELD IS MANDATORY — never return an empty array if any checkpoint is not Optimal.
 - plan_trigger: tracking_broken | ads_leaking | compliance_risk | container_messy | mostly_clean. Pick tracking_broken if 2+ issues are HIGH severity, regardless of other fields.
 - working: 2-3 bullets, max 10 words each.
 - benchmarks: 2-3 well-known peer sites, max 8 words of note. Only include "url" if confident of the real domain - omit rather than guess.
@@ -375,7 +369,7 @@ LENGTH: hard ceiling 1100 output tokens total. If you are running long, shorten 
 
 FIELD ORDER MATTERS — write them in exactly this order so the essential content comes first:
 Return ONLY single-line JSON - no markdown, no newlines inside values:
-{"headline":"","narrative":["",""],"issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"plan_trigger":"","your_score":0,"working":[""],"benchmarks":[{"name":"","score":0,"url":""}]}`;
+{"headline":"","issues":[{"severity":"HIGH","title":"","impact":"","source":"ga"}],"plan_trigger":"","your_score":0,"working":[""],"benchmarks":[{"name":"","score":0,"url":""}]}`;
 
 // Generate
 document.getElementById('genBtn').addEventListener('click', generate);
@@ -468,17 +462,6 @@ function renderCombinedSummary(container,r,stats){
 
   // Headline
   h+='<div class="sum-headline">'+esc(r.headline||'')+'</div>';
-
-  // Personalized narrative — the facts that used to live in separate metric
-  // cards (biggest gap, key events, paid traffic, compliance) are now told as
-  // 2-3 flowing paragraphs specific to this business, not displayed as a dashboard.
-  if(r.narrative?.length){
-    h+='<div class="sum-section">';
-    r.narrative.forEach(p=>{
-      h+='<div class="sum-text" style="margin-bottom:10px;font-size:13.5px;line-height:1.7">'+esc(p)+'</div>';
-    });
-    h+='</div>';
-  }
 
   // Benchmarks
   if(r.benchmarks?.length){
